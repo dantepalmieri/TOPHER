@@ -1,0 +1,14 @@
+# secrets and machine-specific local paths
+.env
+.mcp.json
+
+# personal data - short-term conversation memory
+conversation_history.json
+
+# python
+__pycache__/
+*.pyc
+venv/
+
+# claude code local settings (personal, not shared)
+.claude/settings.local.json
