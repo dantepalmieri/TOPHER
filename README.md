@@ -1,11 +1,20 @@
-# Second Brain Assistant
+# TOPHER
 
-A personal AI assistant system, built in phases: it starts as a simple Obsidian vault
-search tool and grows into a multi-agent system with a live dashboard. As of Phase 4,
-it can search and write to your vault, remember conversations short- and long-term,
-run as an MCP server for Claude Desktop/Code, and hand a goal to a five-agent team
+**T.O.P.H.E.R.** — Totally Open Personal Home Environment Robot. A personal AI
+assistant system, built in phases: it starts as a simple Obsidian vault search tool
+and grows into a multi-agent system with a live dashboard. As of Phase 4, it can
+search and write to your vault, remember conversations short- and long-term, run as
+an MCP server for Claude Desktop/Code, and hand a goal to a five-agent team
 (Architect, Research, Developer, Testing, Analytics) that plans, investigates, builds,
 reviews, and reports on it end to end.
+
+### About the name
+
+Topher (or "Toph") is the assistant's identity across every part of this project —
+the core vault assistant and every team agent operate under that one name, each in
+their own distinct voice, the same way JARVIS is one assistant across every system
+it runs. `second_brain/identity.py` holds the shared identity text every agent's
+system prompt is built from.
 
 ## Table of contents
 
@@ -156,6 +165,8 @@ standalone stdio test client and from inside a live Claude Code session.
 
 ```
 second_brain/
+  identity.py               - TOPHER_IDENTITY_TEXT, the shared identity text every agent's
+                              system prompt is built from (client.py and all 5 team agents)
   config.py                - all constants (model name, vault path, limits, embedding model,
                               chroma collection name, history file path/context window,
                               assistant memory folder name, summarization token limit,
@@ -449,6 +460,13 @@ one honestly-labeled non-blocking coverage gap. Analytics independently re-verif
 the same test run, then produced a metrics rollup (LOC, test counts, plan-vs-actual
 milestone tracking) with sourced figures, not estimates. Test artifacts were
 removed from `workspace/` afterward to leave a clean slate.
+
+**Naming, after the repo went public:** the project and its GitHub repo were named
+TOPHER (T.O.P.H.E.R.), with the assistant going by "Topher" or "Toph" — a nod to
+JARVIS, one consistent assistant identity across every surface. `second_brain/identity.py`
+holds that identity text once; every team agent's system prompt and `client.py`'s
+raw API calls now build on top of it, so the name applies everywhere without
+duplicating the text five times or overwriting any agent's own distinct personality.
 
 ## Next steps
 

@@ -5,6 +5,7 @@ from second_brain.config import CLAUDE_MODEL_NAME, CLAUDE_MAX_TOKENS, SUMMARIZAT
 from second_brain.types import ClaudeAnswer
 from second_brain.vault.vault_reader import find_note_file_path_by_title
 from second_brain.vault.vault_writer import create_note, append_to_note
+from second_brain.identity import TOPHER_IDENTITY_TEXT
 
 anthropic_client = anthropic.Anthropic()
 
@@ -129,6 +130,7 @@ def _call_claude(message_list, max_tokens):
     response = anthropic_client.messages.create(
         model=CLAUDE_MODEL_NAME,
         max_tokens=max_tokens,
+        system=TOPHER_IDENTITY_TEXT,
         messages=message_list
     )
     response_text = _extract_response_text(response)
@@ -210,6 +212,7 @@ def _run_conversation_with_tools(message_list):
         response = anthropic_client.messages.create(
             model=CLAUDE_MODEL_NAME,
             max_tokens=CLAUDE_MAX_TOKENS,
+            system=TOPHER_IDENTITY_TEXT,
             tools=VAULT_WRITE_TOOLS,
             messages=message_list
         )

@@ -7,6 +7,7 @@ import asyncio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 from second_brain.config import DEVELOPER_AGENT_MODEL_NAME, TEAM_WORKSPACE_DIRECTORY_PATH
 from second_brain.agents.team_workspace import ensure_team_workspace_directory_exists
+from second_brain.identity import TOPHER_IDENTITY_TEXT
 
 READ_TOOL_NAME = "Read"
 WRITE_TOOL_NAME = "Write"
@@ -20,6 +21,7 @@ DEVELOPER_AGENT_ALLOWED_TOOLS = [
 ]
 
 DEVELOPER_AGENT_SYSTEM_PROMPT = (
+    TOPHER_IDENTITY_TEXT + "\n\n"
     "You are the Developer - a hands-on builder. Given a plan and any research findings, "
     "you build it: code, scripts, configs, or whatever artifact the plan calls for. You "
     "work only inside your sandboxed workspace directory.\n\n"

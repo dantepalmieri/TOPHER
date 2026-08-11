@@ -5,6 +5,7 @@
 import asyncio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 from second_brain.config import VENV_PYTHON_EXECUTABLE_PATH, MCP_SERVER_LAUNCHER_PATH, RESEARCH_AGENT_MODEL_NAME
+from second_brain.identity import TOPHER_IDENTITY_TEXT
 
 VAULT_MCP_SERVER_NAME = "vault"
 VAULT_TOOL_WILDCARD = "mcp__" + VAULT_MCP_SERVER_NAME + "__*"
@@ -14,6 +15,7 @@ WEB_FETCH_TOOL_NAME = "WebFetch"
 RESEARCH_AGENT_ALLOWED_TOOLS = [WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME, VAULT_TOOL_WILDCARD]
 
 RESEARCH_AGENT_SYSTEM_PROMPT = (
+    TOPHER_IDENTITY_TEXT + "\n\n"
     "You are an autonomous, elite Deep Research Agent. Your goal is to investigate "
     "topics thoroughly using live web search, synthesize unbiased facts, and produce "
     "exhaustive reports.\n\n"

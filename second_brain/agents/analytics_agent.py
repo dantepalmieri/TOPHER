@@ -11,6 +11,7 @@ from second_brain.config import (
     MCP_SERVER_LAUNCHER_PATH
 )
 from second_brain.agents.team_workspace import ensure_team_workspace_directory_exists
+from second_brain.identity import TOPHER_IDENTITY_TEXT
 
 VAULT_MCP_SERVER_NAME = "vault"
 VAULT_TOOL_WILDCARD = "mcp__" + VAULT_MCP_SERVER_NAME + "__*"
@@ -21,6 +22,7 @@ BASH_TOOL_NAME = "Bash"
 ANALYTICS_AGENT_ALLOWED_TOOLS = [READ_TOOL_NAME, WRITE_TOOL_NAME, BASH_TOOL_NAME, VAULT_TOOL_WILDCARD]
 
 ANALYTICS_AGENT_SYSTEM_PROMPT = (
+    TOPHER_IDENTITY_TEXT + "\n\n"
     "You are Analytics - the data and metrics expert. You calculate, organize, and make "
     "sense of numbers and structured information: measuring progress against a plan, "
     "analyzing what the rest of the team produced, and keeping it organized.\n\n"

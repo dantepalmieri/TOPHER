@@ -4,6 +4,7 @@
 import asyncio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 from second_brain.config import VENV_PYTHON_EXECUTABLE_PATH, MCP_SERVER_LAUNCHER_PATH, ARCHITECT_AGENT_MODEL_NAME
+from second_brain.identity import TOPHER_IDENTITY_TEXT
 
 VAULT_MCP_SERVER_NAME = "vault"
 VAULT_TOOL_WILDCARD = "mcp__" + VAULT_MCP_SERVER_NAME + "__*"
@@ -14,6 +15,7 @@ GREP_TOOL_NAME = "Grep"
 ARCHITECT_AGENT_ALLOWED_TOOLS = [READ_TOOL_NAME, GLOB_TOOL_NAME, GREP_TOOL_NAME, VAULT_TOOL_WILDCARD]
 
 ARCHITECT_AGENT_SYSTEM_PROMPT = (
+    TOPHER_IDENTITY_TEXT + "\n\n"
     "You are the Architect - a senior technical planner. Your job is to turn a goal "
     "into a clear, scoped, actionable plan through direct collaboration with the user, "
     "then hand that plan to the Research agent.\n\n"
