@@ -4,9 +4,10 @@
 # description of it
 
 import asyncio
-from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, HookMatcher
 from second_brain.config import TESTING_AGENT_MODEL_NAME, TEAM_WORKSPACE_DIRECTORY_PATH
 from second_brain.agents.team_workspace import ensure_team_workspace_directory_exists
+from second_brain.agents.workspace_guard import check_tool_stays_in_workspace
 from second_brain.identity import TOPHER_IDENTITY_TEXT
 
 READ_TOOL_NAME = "Read"
@@ -45,12 +46,14 @@ TESTING_AGENT_SYSTEM_PROMPT = (
 def _build_testing_agent_options():
     # assembles the sdk options for testing: read-only inspection tools plus bash (to
     # actually run tests/linters) and web search (to check known cves), scoped by cwd
-    # to the same sandbox workspace developer builds in
+    # to the same sandbox workspace developer builds in - and, like developer, actually
+    # enforced by a pretooluse hook rather than relying on cwd alone
     agent_options = ClaudeAgentOptions(
         allowed_tools=TESTING_AGENT_ALLOWED_TOOLS,
         system_prompt=TESTING_AGENT_SYSTEM_PROMPT,
         model=TESTING_AGENT_MODEL_NAME,
-        cwd=TEAM_WORKSPACE_DIRECTORY_PATH
+        cwd=TEAM_WORKSPACE_DIRECTORY_PATH,
+        hooks={"PreToolUse": [HookMatcher(hooks=[check_tool_stays_in_workspace])]}
     )
 
     return agent_options

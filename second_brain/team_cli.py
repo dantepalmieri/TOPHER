@@ -2,14 +2,25 @@
 # cli.py's and research_cli.py's i/o-ownership convention for its own entry point
 
 import sys
+import uuid
 from second_brain.orchestrator import (
     handle_architect_request,
     handle_research_request,
     handle_developer_request,
     handle_testing_request,
     handle_analytics_request,
-    run_full_team_pipeline
+    run_full_team_pipeline,
+    ARCHITECT_STAGE_NAME,
+    RESEARCH_STAGE_NAME,
+    DEVELOPER_STAGE_NAME,
+    TESTING_STAGE_NAME,
+    ANALYTICS_STAGE_NAME
 )
+from second_brain.dashboard import run_store
+
+PIPELINE_STAGE_ORDER = [
+    ARCHITECT_STAGE_NAME, RESEARCH_STAGE_NAME, DEVELOPER_STAGE_NAME, TESTING_STAGE_NAME, ANALYTICS_STAGE_NAME
+]
 
 TERMINAL_PROMPT_TEXT = "Team request: "
 EXIT_MESSAGE = "Ending team session."
@@ -79,6 +90,42 @@ def _print_stage_result(stage_result):
     print(stage_result.output_text)
 
 
+def _infer_in_flight_agent(completed_stage_names):
+    # the fixed pipeline order plus how many stages finished before a failure
+    # unambiguously identifies which agent was running when it happened - no change
+    # to orchestrator.py needed to know this
+    completed_count = len(completed_stage_names)
+
+    if completed_count < len(PIPELINE_STAGE_ORDER):
+        return PIPELINE_STAGE_ORDER[completed_count]
+
+    return ANALYTICS_STAGE_NAME
+
+
+def _run_full_pipeline_with_persistence(goal):
+    # runs the full pipeline, persisting progress to the dashboard's run_store as it
+    # goes. run_store writes are local sqlite, never network, so this never depends
+    # on a dashboard server actually being up - the cli works identically either way
+    run_id = uuid.uuid4().hex
+    run_store.create_run(run_id, goal)
+    completed_stage_names = []
+
+    def _persist_and_print(stage_result):
+        run_store.record_stage_result(run_id, stage_result)
+        completed_stage_names.append(stage_result.agent_name)
+        _print_stage_result(stage_result)
+
+    try:
+        run_full_team_pipeline(goal, on_stage_complete=_persist_and_print)
+        run_store.mark_run_finished(run_id, run_store.RUN_STATUS_DONE)
+    except (Exception, KeyboardInterrupt) as pipeline_error:
+        # a plain except Exception would not catch ctrl+c, the single most likely
+        # real-world way a run gets abandoned mid-flight for a solo local user
+        in_flight_agent = _infer_in_flight_agent(completed_stage_names)
+        run_store.mark_run_finished(run_id, run_store.RUN_STATUS_ERROR)
+        print("\n" + in_flight_agent + " failed: " + str(pipeline_error))
+
+
 def _handle_single_agent_request(agent_prefix, remaining_text):
     # dispatches a prefixed request to exactly one agent and prints its answer
     display_name = agent_prefix.capitalize()
@@ -106,6 +153,7 @@ def run_team_cli():
     # encode characters an agent's answer may contain; reconfiguring stdout to utf-8
     # stops printing from crashing on those answers, matching cli.py's fix
     sys.stdout.reconfigure(encoding="utf-8")
+    run_store.initialize_database()
 
     print(HELP_MESSAGE)
     user_request = _prompt_user_for_request()
@@ -114,7 +162,7 @@ def run_team_cli():
         agent_prefix, remaining_text = _split_agent_prefix(user_request)
 
         if agent_prefix is None:
-            run_full_team_pipeline(user_request, on_stage_complete=_print_stage_result)
+            _run_full_pipeline_with_persistence(user_request)
         else:
             _handle_single_agent_request(agent_prefix, remaining_text)
 

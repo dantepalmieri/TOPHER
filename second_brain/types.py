@@ -29,3 +29,31 @@ class ConversationTurn:
 class PipelineStageResult:
     agent_name: str
     output_text: str
+
+
+@dataclass
+class RunSummary:
+    run_id: str
+    run_type: str
+    goal: str
+    started_at: str
+    finished_at: str
+    status: str
+
+
+@dataclass
+class RunDetail:
+    run_id: str
+    run_type: str
+    goal: str
+    started_at: str
+    finished_at: str
+    status: str
+    stages: List[PipelineStageResult]
+
+
+@dataclass
+class VaultEvent:
+    event_id: int
+    description: str
+    occurred_at: str

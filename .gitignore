@@ -5,6 +5,13 @@
 # personal data - short-term conversation memory
 conversation_history.json
 
+# dashboard run history (sqlite, wal mode - includes -wal/-shm sidecar files)
+dashboard.db*
+
+# dashboard frontend build artifacts and dependencies
+dashboard-frontend/node_modules/
+dashboard-frontend/dist/
+
 # python
 __pycache__/
 *.pyc

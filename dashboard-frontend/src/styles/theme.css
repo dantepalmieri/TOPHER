@@ -1,0 +1,325 @@
+/* mission-control / soc-wall theme. dark is the only mode - this is a control-room
+   screen, not a toggleable app - so there is no light-mode variant to maintain.
+   values are the dataviz skill's validated dark-surface palette; the "glow" is a
+   purely additive box-shadow on top, the underlying hex values are never altered */
+
+:root {
+  --page-plane: #0d0d0d;
+  --panel-surface: #1a1a19;
+  --panel-border: rgba(255, 255, 255, 0.1);
+
+  --ink-primary: #ffffff;
+  --ink-secondary: #c3c2b7;
+  --ink-muted: #898781;
+
+  /* status - reserved, never reused as an agent identity color, always paired
+     with an icon + label in the components that use them */
+  --status-idle: var(--ink-muted);
+  --status-running: #fab219;
+  --status-done: #0ca30c;
+  --status-error: #d03b3b;
+  --status-interrupted: #ec835a;
+
+  /* agent identity - categorical, fixed order, accent/icon color only, never text */
+  --agent-architect: #3987e5;
+  --agent-research: #d95926;
+  --agent-developer: #199e70;
+  --agent-testing: #c98500;
+  --agent-analytics: #d55181;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--page-plane);
+  color: var(--ink-primary);
+  font-family: var(--font-sans);
+  color-scheme: dark;
+}
+
+/* text always wears a text token, never a status/identity color directly - those
+   colors carry meaning through an accent, an icon, or a border, never body text */
+h1, h2, h3, p, span, div {
+  color: inherit;
+}
+
+.panel {
+  background: var(--panel-surface);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+}
+
+.text-secondary {
+  color: var(--ink-secondary);
+}
+
+.text-muted {
+  color: var(--ink-muted);
+}
+
+/* the cinematic control-room lighting effect - an active card gets a glow in its
+   own identity or status color; idle cards stay flat/dim so the eye is drawn
+   straight to whatever is actually happening */
+.glow {
+  box-shadow: 0 0 16px -2px var(--glow-color, transparent);
+  transition: box-shadow 0.3s ease;
+}
+
+.panel-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+}
+
+/* app shell */
+
+.app-shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.app-wordmark {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--ink-primary);
+}
+
+.connection-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.connection-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.connection-dot-connected {
+  background: var(--status-done);
+  box-shadow: 0 0 8px -1px var(--status-done);
+}
+
+.connection-dot-disconnected {
+  background: var(--status-error);
+  box-shadow: 0 0 8px -1px var(--status-error);
+}
+
+/* main 3-panel grid: status board is the primary focus (spans full width up top),
+   history and vault activity share the row below */
+
+.app-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 16px;
+  padding: 16px 24px 24px;
+}
+
+.agent-status-board {
+  grid-column: 1 / -1;
+}
+
+.agent-status-board-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .app-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-status-board-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* agent status cards */
+
+.agent-card {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.agent-card-name {
+  font-weight: 600;
+}
+
+.agent-card-status {
+  font-size: 13px;
+}
+
+.agent-card-role {
+  font-size: 12px;
+}
+
+.agent-card-snippet {
+  font-size: 13px;
+  line-height: 140%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* history timeline */
+
+.history-timeline {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.history-row-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-row {
+  padding: 10px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.history-row-goal {
+  font-size: 14px;
+}
+
+.history-row-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+/* vault activity feed */
+
+.vault-activity-feed {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.vault-event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vault-event-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+/* run detail overlay */
+
+.run-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 10;
+}
+
+.run-detail-panel {
+  width: min(720px, 100%);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.run-detail-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.run-detail-close-button {
+  background: transparent;
+  border: 1px solid var(--panel-border);
+  color: var(--ink-secondary);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+.run-detail-close-button:hover {
+  color: var(--ink-primary);
+  border-color: var(--ink-secondary);
+}
+
+.run-detail-stage {
+  margin-top: 16px;
+}
+
+.run-detail-stage-heading {
+  margin: 0 0 6px;
+  padding-left: 8px;
+  font-size: 14px;
+}
+
+.run-detail-stage-output {
+  white-space: pre-wrap;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 150%;
+  margin: 0;
+}

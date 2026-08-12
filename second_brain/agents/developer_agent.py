@@ -1,12 +1,14 @@
 # phase 4: the developer agent - builds whatever the plan calls for. the first agent in
 # this project with real write/edit/bash access, so it is sandboxed to a dedicated
 # workspace directory (team_workspace.py) rather than this project's own source or an
-# arbitrary path
+# arbitrary path. cwd alone does not enforce that sandbox (see workspace_guard.py for
+# why and what actually does) - a pretooluse hook is the real enforcement layer
 
 import asyncio
-from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, HookMatcher
 from second_brain.config import DEVELOPER_AGENT_MODEL_NAME, TEAM_WORKSPACE_DIRECTORY_PATH
 from second_brain.agents.team_workspace import ensure_team_workspace_directory_exists
+from second_brain.agents.workspace_guard import check_tool_stays_in_workspace
 from second_brain.identity import TOPHER_IDENTITY_TEXT
 
 READ_TOOL_NAME = "Read"
@@ -50,13 +52,14 @@ DEVELOPER_AGENT_SYSTEM_PROMPT = (
 
 def _build_developer_agent_options():
     # assembles the sdk options for the developer: the full builtin coding toolset,
-    # scoped by cwd to the sandbox workspace directory so nothing it does can touch
-    # this assistant's own source or files outside the sandbox
+    # scoped by cwd to the sandbox workspace directory - and actually enforced by a
+    # pretooluse hook, since cwd alone is only a starting point, not a boundary
     agent_options = ClaudeAgentOptions(
         allowed_tools=DEVELOPER_AGENT_ALLOWED_TOOLS,
         system_prompt=DEVELOPER_AGENT_SYSTEM_PROMPT,
         model=DEVELOPER_AGENT_MODEL_NAME,
-        cwd=TEAM_WORKSPACE_DIRECTORY_PATH
+        cwd=TEAM_WORKSPACE_DIRECTORY_PATH,
+        hooks={"PreToolUse": [HookMatcher(hooks=[check_tool_stays_in_workspace])]}
     )
 
     return agent_options

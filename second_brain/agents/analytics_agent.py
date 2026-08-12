@@ -3,7 +3,7 @@
 # plus the vault's mcp tools, since organizing often means writing findings back to notes
 
 import asyncio
-from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, HookMatcher
 from second_brain.config import (
     ANALYTICS_AGENT_MODEL_NAME,
     TEAM_WORKSPACE_DIRECTORY_PATH,
@@ -11,6 +11,7 @@ from second_brain.config import (
     MCP_SERVER_LAUNCHER_PATH
 )
 from second_brain.agents.team_workspace import ensure_team_workspace_directory_exists
+from second_brain.agents.workspace_guard import check_tool_stays_in_workspace
 from second_brain.identity import TOPHER_IDENTITY_TEXT
 
 VAULT_MCP_SERVER_NAME = "vault"
@@ -55,7 +56,8 @@ def _build_analytics_agent_options():
         allowed_tools=ANALYTICS_AGENT_ALLOWED_TOOLS,
         system_prompt=ANALYTICS_AGENT_SYSTEM_PROMPT,
         model=ANALYTICS_AGENT_MODEL_NAME,
-        cwd=TEAM_WORKSPACE_DIRECTORY_PATH
+        cwd=TEAM_WORKSPACE_DIRECTORY_PATH,
+        hooks={"PreToolUse": [HookMatcher(hooks=[check_tool_stays_in_workspace])]}
     )
 
     return agent_options

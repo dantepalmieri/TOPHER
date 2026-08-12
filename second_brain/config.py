@@ -54,3 +54,15 @@ ARCHITECT_AGENT_MODEL_NAME = "sonnet"
 DEVELOPER_AGENT_MODEL_NAME = "sonnet"
 TESTING_AGENT_MODEL_NAME = "sonnet"
 ANALYTICS_AGENT_MODEL_NAME = "sonnet"
+
+# phase 5: the dashboard - a localhost-only web ui that watches the team work live.
+# the cli/agents and the dashboard server never talk to each other directly; both
+# sides read/write this sqlite database instead, so the assistant works identically
+# whether the dashboard is running or not. never move this project into a cloud-synced
+# folder (onedrive/dropbox) - wal mode's sidecar files do not tolerate sync-driven
+# file locking
+DASHBOARD_DATABASE_PATH = os.path.join(PROJECT_ROOT_DIRECTORY, "dashboard.db")
+DASHBOARD_SERVER_HOST = "127.0.0.1"
+DASHBOARD_SERVER_PORT = 8420
+DASHBOARD_POLL_INTERVAL_SECONDS = 0.5
+DASHBOARD_STALE_RUN_THRESHOLD_MINUTES = 25
