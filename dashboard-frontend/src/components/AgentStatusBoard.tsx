@@ -1,7 +1,9 @@
 import { AGENT_ORDER } from '../agentConfig'
 import { AgentStatusCard } from './AgentStatusCard'
 import type { AgentCardStatus } from './AgentStatusCard'
+import { NonTeamRunIndicator } from './NonTeamRunIndicator'
 import type { RunDetail } from '../types'
+import { FIVE_STAGE_RUN_TYPES } from '../runTypeDisplay'
 
 interface AgentStatusBoardProps {
   currentRun: RunDetail | null
@@ -32,6 +34,15 @@ function computeAgentStatus(agentIndex: number, currentRun: RunDetail | null): A
 }
 
 export function AgentStatusBoard({ currentRun }: AgentStatusBoardProps) {
+  if (currentRun !== null && !FIVE_STAGE_RUN_TYPES.has(currentRun.run_type)) {
+    return (
+      <section className="panel agent-status-board">
+        <h2 className="panel-title">Agent Status</h2>
+        <NonTeamRunIndicator currentRun={currentRun} />
+      </section>
+    )
+  }
+
   const cards = []
 
   for (let agentIndex = 0; agentIndex < AGENT_ORDER.length; agentIndex++) {

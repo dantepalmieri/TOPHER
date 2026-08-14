@@ -1,4 +1,5 @@
 import { useDashboardSocket } from './hooks/useDashboardSocket'
+import { TriggerPanel } from './components/TriggerPanel'
 import { AgentStatusBoard } from './components/AgentStatusBoard'
 import { VaultActivityFeed } from './components/VaultActivityFeed'
 import { HistoryTimeline } from './components/HistoryTimeline'
@@ -26,6 +27,7 @@ function App() {
         </div>
       </header>
       <main className="app-grid">
+        <TriggerPanel />
         <AgentStatusBoard currentRun={currentRun} />
         <HistoryTimeline pastRuns={pastRuns} />
         <VaultActivityFeed vaultEvents={vaultEvents} />

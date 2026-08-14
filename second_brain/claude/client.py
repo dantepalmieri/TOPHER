@@ -6,8 +6,21 @@ from second_brain.types import ClaudeAnswer
 from second_brain.vault.vault_reader import find_note_file_path_by_title
 from second_brain.vault.vault_writer import create_note, append_to_note
 from second_brain.identity import TOPHER_IDENTITY_TEXT
+from second_brain.dashboard import run_store
 
 anthropic_client = anthropic.Anthropic()
+
+
+def _report_vault_event(description):
+    # phase 6: the vault_qa side of the dashboard's vault-activity instrumentation -
+    # mirrors mcp_server.py's _report_vault_event so a note created/appended through a
+    # plain vault_qa conversation shows up in the same feed as one made by an agent's
+    # mcp tools. a dashboard db hiccup must never break an actual vault write, so this
+    # is best-effort and never raises
+    try:
+        run_store.record_vault_event(description)
+    except Exception:
+        pass
 
 SUMMARIZATION_INSTRUCTION = (
     "Summarize the conversation above in 2-4 sentences for long-term memory. "
@@ -149,6 +162,7 @@ def _execute_create_note(tool_input):
         return str(file_exists_error), True
 
     result_text = "Created note '" + note_title + "' at " + created_file_path
+    _report_vault_event("Created note '" + note_title + "'")
     return result_text, False
 
 
@@ -165,6 +179,7 @@ def _execute_append_to_note(tool_input):
 
     append_to_note(file_path, text_to_append)
     result_text = "Appended to note '" + note_title + "'"
+    _report_vault_event("Appended to note '" + note_title + "'")
     return result_text, False
 
 

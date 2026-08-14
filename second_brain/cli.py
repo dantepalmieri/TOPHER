@@ -1,13 +1,16 @@
 # the only module that touches terminal input/output
 
 import sys
+import uuid
 from second_brain.vault.semantic_search import search_notes_by_semantic_similarity
 from second_brain.claude.client import ask_claude_about_vault
 from second_brain.conversation_history import load_conversation_history, append_turns_to_history
 from second_brain.assistant_memory import save_session_to_memory
 from second_brain.config import MAXIMUM_NOTES_TO_INCLUDE, MAXIMUM_HISTORY_TURNS_FOR_CONTEXT
-from second_brain.types import ConversationTurn
+from second_brain.types import ConversationTurn, PipelineStageResult
+from second_brain.dashboard import run_store
 
+ASSISTANT_STAGE_NAME = "Topher"
 TERMINAL_PROMPT_TEXT = "Ask your vault: "
 NO_MATCHES_MESSAGE = "No matching notes found. Answering from general knowledge only."
 SAVING_MEMORY_MESSAGE = "Saving this session to long-term memory..."
@@ -83,6 +86,26 @@ def _build_search_query(user_question, conversation_turns):
     return most_recent_user_turn.content + " " + user_question
 
 
+def _ask_with_persistence(user_question, matching_notes, recent_turns):
+    # runs one vault_qa turn through claude, persisting it to the dashboard's run_store
+    # as a one-stage run - same try/except-and-mark-error shape as team_cli.py's
+    # _run_full_pipeline_with_persistence, just for a single stage instead of five.
+    # local sqlite writes only, so this behaves identically whether the dashboard
+    # server is up or not
+    run_id = uuid.uuid4().hex
+    run_store.create_run(run_id, user_question, run_type=run_store.VAULT_QA_RUN_TYPE)
+
+    try:
+        claude_answer = ask_claude_about_vault(user_question, matching_notes, recent_turns)
+        stage_result = PipelineStageResult(agent_name=ASSISTANT_STAGE_NAME, output_text=claude_answer.response_text)
+        run_store.record_stage_result(run_id, stage_result)
+        run_store.mark_run_finished(run_id, run_store.RUN_STATUS_DONE)
+        return claude_answer
+    except (Exception, KeyboardInterrupt):
+        run_store.mark_run_finished(run_id, run_store.RUN_STATUS_ERROR)
+        raise
+
+
 def run_command_line_assistant():
     # main loop: ask a question, search the vault, get an answer, print it, save it,
     # and repeat until the user exits; conversation history persists across runs too
@@ -91,6 +114,7 @@ def run_command_line_assistant():
     # encode characters claude's answers may contain, such as emoji; reconfiguring
     # stdout to utf-8 stops printing from crashing on those answers
     sys.stdout.reconfigure(encoding="utf-8")
+    run_store.initialize_database()
 
     conversation_turns = load_conversation_history()
     session_turns = []
@@ -104,7 +128,7 @@ def run_command_line_assistant():
             print(NO_MATCHES_MESSAGE)
 
         recent_turns = _most_recent_turns(conversation_turns)
-        claude_answer = ask_claude_about_vault(user_question, matching_notes, recent_turns)
+        claude_answer = _ask_with_persistence(user_question, matching_notes, recent_turns)
         _print_answer(claude_answer)
 
         new_turns = [

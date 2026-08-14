@@ -16,6 +16,14 @@ RUN_STATUS_ERROR = "error"
 RUN_STATUS_INTERRUPTED = "interrupted"
 
 TEAM_PIPELINE_RUN_TYPE = "team_pipeline"
+VAULT_QA_RUN_TYPE = "vault_qa"
+SOLO_RESEARCH_RUN_TYPE = "solo_research"
+# phase 6: same 5-stage shape as TEAM_PIPELINE_RUN_TYPE (still architect -> research ->
+# developer -> testing -> analytics) but pointed at the real project root under
+# self_modification_guard.py's denylist instead of workspace/ - kept as its own
+# run_type, not a flag on team_pipeline, so this highest-trust mode is never
+# ambiguous at a glance in the dashboard's history or badges
+SELF_IMPROVE_RUN_TYPE = "self_improve"
 
 
 def _open_connection():

@@ -1,15 +1,21 @@
 # phase 4: the developer agent - builds whatever the plan calls for. the first agent in
-# this project with real write/edit/bash access, so it is sandboxed to a dedicated
-# workspace directory (team_workspace.py) rather than this project's own source or an
-# arbitrary path. cwd alone does not enforce that sandbox (see workspace_guard.py for
-# why and what actually does) - a pretooluse hook is the real enforcement layer
+# this project with real write/edit/bash access.
+#
+# phase 6: developer now has two modes. by default (self_improvement_mode=False) it
+# stays exactly as before - sandboxed to workspace/, enforced by workspace_guard.py's
+# allowlist (cwd alone does not enforce that sandbox, see workspace_guard.py for why).
+# in self-improvement mode, cwd becomes the real project root and the hook swaps to
+# self_modification_guard.py's denylist instead - never both hooks at once, since
+# workspace_guard.py's boundary check would deny everything outside workspace/, which
+# is the wrong boundary entirely once cwd is the project root
 
 import asyncio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, HookMatcher
-from second_brain.config import DEVELOPER_AGENT_MODEL_NAME, TEAM_WORKSPACE_DIRECTORY_PATH
+from second_brain.config import DEVELOPER_AGENT_MODEL_NAME, TEAM_WORKSPACE_DIRECTORY_PATH, PROJECT_ROOT_DIRECTORY
 from second_brain.agents.team_workspace import ensure_team_workspace_directory_exists
 from second_brain.agents.workspace_guard import check_tool_stays_in_workspace
-from second_brain.identity import TOPHER_IDENTITY_TEXT
+from second_brain.agents.self_modification_guard import check_self_modification_is_safe
+from second_brain.agents.developer_prompt import DEVELOPER_AGENT_SYSTEM_PROMPT
 
 READ_TOOL_NAME = "Read"
 WRITE_TOOL_NAME = "Write"
@@ -22,54 +28,35 @@ DEVELOPER_AGENT_ALLOWED_TOOLS = [
     READ_TOOL_NAME, WRITE_TOOL_NAME, EDIT_TOOL_NAME, BASH_TOOL_NAME, GLOB_TOOL_NAME, GREP_TOOL_NAME
 ]
 
-DEVELOPER_AGENT_SYSTEM_PROMPT = (
-    TOPHER_IDENTITY_TEXT + "\n\n"
-    "You are the Developer - a hands-on builder. Given a plan and any research findings, "
-    "you build it: code, scripts, configs, or whatever artifact the plan calls for. You "
-    "work only inside your sandboxed workspace directory.\n\n"
-    "## Personality\n"
-    "Pragmatic and decisive. You would rather ship a working, well-scoped version than "
-    "debate architecture forever. You follow the plan you are given, but you say so "
-    "immediately if something in it is wrong, missing, or unbuildable as written - you do "
-    "not silently improvise around a bad plan. Terse, concrete updates: what you built, "
-    "where, and why - not a running narration of your thought process.\n\n"
-    "## Code style rules\n"
-    "- No non-self-documenting or single-letter variable names, except loop counters, "
-    "math formulas, or established conventions (x/y coordinates).\n"
-    "- Comments should be organized and understandable, all lowercase unless referencing "
-    "something with established uppercase - enough to explain the why, not a line-by-line "
-    "narration.\n"
-    "- True/False, never 1/0, for booleans. Constants instead of magic numbers or repeated "
-    "literals.\n"
-    "- No global variables, no break outside a switch, no continue, no ternary expressions.\n"
-    "- No empty if/else blocks, no extremely long lines, 4-space indentation, no tabs.\n\n"
-    "## Rules\n"
-    "- Build only what the plan/goal actually calls for - no speculative features, no "
-    "unrequested refactors, no half-finished implementations.\n"
-    "- Report exactly what you created or changed at the end, like a changelog entry."
-)
 
-
-def _build_developer_agent_options():
+def _build_developer_agent_options(self_improvement_mode):
     # assembles the sdk options for the developer: the full builtin coding toolset,
-    # scoped by cwd to the sandbox workspace directory - and actually enforced by a
-    # pretooluse hook, since cwd alone is only a starting point, not a boundary
+    # with the boundary and its enforcing hook chosen by mode - never both hooks
+    # registered together, since they implement two different, mutually exclusive
+    # boundary models (allowlist vs denylist)
+    if self_improvement_mode is True:
+        agent_cwd = PROJECT_ROOT_DIRECTORY
+        pre_tool_use_hook = check_self_modification_is_safe
+    else:
+        agent_cwd = TEAM_WORKSPACE_DIRECTORY_PATH
+        pre_tool_use_hook = check_tool_stays_in_workspace
+
     agent_options = ClaudeAgentOptions(
         allowed_tools=DEVELOPER_AGENT_ALLOWED_TOOLS,
         system_prompt=DEVELOPER_AGENT_SYSTEM_PROMPT,
         model=DEVELOPER_AGENT_MODEL_NAME,
-        cwd=TEAM_WORKSPACE_DIRECTORY_PATH,
-        hooks={"PreToolUse": [HookMatcher(hooks=[check_tool_stays_in_workspace])]}
+        cwd=agent_cwd,
+        hooks={"PreToolUse": [HookMatcher(hooks=[pre_tool_use_hook])]}
     )
 
     return agent_options
 
 
-async def run_developer_query(build_request):
+async def run_developer_query(build_request, self_improvement_mode=False):
     # runs one build request through the developer end-to-end and returns its final
     # changelog-style report once the sdk reports the run complete
     ensure_team_workspace_directory_exists()
-    agent_options = _build_developer_agent_options()
+    agent_options = _build_developer_agent_options(self_improvement_mode)
     final_result_text = ""
 
     async for message in query(prompt=build_request, options=agent_options):
@@ -79,7 +66,7 @@ async def run_developer_query(build_request):
     return final_result_text
 
 
-def ask_developer(build_request):
+def ask_developer(build_request, self_improvement_mode=False):
     # synchronous entry point for callers that aren't already running an asyncio event loop
-    final_result_text = asyncio.run(run_developer_query(build_request))
+    final_result_text = asyncio.run(run_developer_query(build_request, self_improvement_mode))
     return final_result_text

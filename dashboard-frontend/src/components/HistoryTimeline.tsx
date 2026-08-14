@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { RunSummary } from '../types'
 import { STATUS_LABELS, STATUS_ICONS, getStatusColorVar } from '../statusDisplay'
+import { getRunTypeLabel } from '../runTypeDisplay'
 import { RunDetailPanel } from './RunDetailPanel'
 
 interface HistoryTimelineProps {
@@ -39,7 +40,10 @@ export function HistoryTimeline({ pastRuns }: HistoryTimelineProps) {
 
     rows.push(
       <li key={currentRun.run_id} className="history-row" onClick={() => handleRowClick(currentRun.run_id)}>
-        <span className="history-row-goal">{buildGoalPreview(currentRun.goal)}</span>
+        <span className="history-row-goal-line">
+          <span className="history-row-badge text-muted">{getRunTypeLabel(currentRun.run_type)}</span>
+          <span className="history-row-goal">{buildGoalPreview(currentRun.goal)}</span>
+        </span>
         <span className="history-row-meta">
           <span className="text-muted">{formatStartedAt(currentRun.started_at)}</span>
           <span style={{ color: statusColorVar }}>

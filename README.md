@@ -2,12 +2,15 @@
 
 **T.O.P.H.E.R.** — Totally Open Personal Home Environment Robot. A personal AI
 assistant system, built in phases: it starts as a simple Obsidian vault search tool
-and grows into a multi-agent system with a live dashboard. As of Phase 5, it can
-search and write to your vault, remember conversations short- and long-term, run as
-an MCP server for Claude Desktop/Code, hand a goal to a five-agent team (Architect,
-Research, Developer, Testing, Analytics) that plans, investigates, builds, reviews,
-and reports on it end to end — and a live "mission control" web dashboard to watch
-that team work in real time.
+and grows into a multi-agent system with a live, interactive dashboard. As of
+Phase 6, it can search and write to your vault, remember conversations short- and
+long-term, run as an MCP server for Claude Desktop/Code, hand a goal to a
+five-agent team (Architect, Research, Developer, Testing, Analytics) that plans,
+investigates, builds, reviews, and reports on it end to end, work on its own real
+codebase directly in a self-improvement mode that can't touch its own safety
+wiring, and run as a persistent "mission control" web dashboard — reachable
+remotely over a private network — that can both watch every kind of run Topher
+does and trigger new ones itself.
 
 ### About the name
 
@@ -35,6 +38,7 @@ system prompt is built from.
 3. **Subagent framework** — one specialized agent (Research) that can be invoked by an orchestrator to handle a narrow task end-to-end — ✅ complete (Phase 3)
 4. **Multi-agent team** — a full set of specialized agents (Architect, Research, Developer, Testing, Analytics) that communicate and hand work off to each other — ✅ complete (Phase 4)
 5. **Dashboard UI** — a visual control-room style app to watch the agents work: multiple panels, live data, dark theme with glowing accents — ✅ complete (Phase 5, v1 watch-only)
+6. **Self-improving team, interactive + remote dashboard, full coverage** — the team can work on Topher's own real codebase under a hard technical boundary around its own safety wiring; the dashboard covers every kind of run (not just the 5-agent team), can trigger runs itself instead of only watching, and is reachable over a private network — ✅ complete (Phase 6)
 
 Each phase builds directly on the last. The vault access layer (Phase 1) is the
 foundation everything else depends on, so it was built and tested first before
@@ -146,11 +150,17 @@ python -m second_brain.dashboard.server   # starts the dashboard backend on http
 ```
 
 Then open `http://127.0.0.1:8420/` in a browser (build the frontend first if you
-haven't — see below), and run `python -m second_brain.team_cli` as usual in a
-separate terminal. The dashboard is a passive, read-only observer: it never
-triggers anything, and `team_cli.py` works identically whether the dashboard
-server is running or not — both sides just read/write the same local
-`dashboard.db` SQLite file, never talking to each other directly.
+haven't — see below). You can watch a run started from a terminal
+(`python -m second_brain.team_cli`, `cli.py`, `research_cli.py`) the same way as
+before — both sides read/write the same local `dashboard.db` SQLite file, never
+talking to each other directly, so the CLIs work identically whether the dashboard
+server is running or not. As of Phase 6 you can also trigger a run directly from the
+dashboard itself, using the "Trigger a Run" panel at the top of the page — pick a
+goal and a mode (Team Pipeline, Research, Vault Q&A, or Self-Improve) and it starts
+the same way a CLI-triggered run would, then shows up live through the same
+WebSocket the rest of the dashboard already uses. Self-Improve mode gets its own
+confirmation dialog before it starts, since it's the one mode that lets the team
+commit directly to Topher's own real codebase.
 
 Building the frontend (one-time, or after changing it):
 
@@ -164,6 +174,38 @@ The dashboard server serves the built `dashboard-frontend/dist` automatically on
 it exists. For frontend development with hot reload instead, run `npm run dev` in
 `dashboard-frontend/` alongside the dashboard server — Vite proxies `/api` and `/ws`
 to it (see `dashboard-frontend/vite.config.ts`).
+
+### Remote access (private network only)
+
+By default the dashboard only binds to `127.0.0.1` — nothing outside your machine
+can reach it. To reach it from your phone or another device, set
+`DASHBOARD_SERVER_HOST` in `.env` to an address reachable from your private network,
+e.g. a [Tailscale](https://tailscale.com/) IP:
+
+```powershell
+tailscale ip -4      # find your machine's tailnet address, e.g. 100.x.y.z
+```
+
+```
+DASHBOARD_SERVER_HOST=100.x.y.z
+```
+
+Then restart `python -m second_brain.dashboard.server` and open
+`http://100.x.y.z:8420/` from any device on that tailnet.
+
+**Read this before setting it.** There is no login system — the private network
+itself is the entire access control. Once bound to a reachable address, *every*
+device on that network can both watch **and trigger runs**, including
+Self-Improve mode, with no further authentication. This is an intentional,
+deliberately simple design (a login system was explicitly out of scope for this
+phase), appropriate for a personal Tailscale-style network you control, but it
+means anyone else who ever joins that network gets the same access you do.
+
+If you want remote *watching* without remote *triggering*, that middle ground
+isn't built — it would mean binding the REST/WebSocket routes broadly while
+checking the request's source IP and requiring `127.0.0.1` specifically for
+`POST /api/trigger`. Worth doing if the two ever need different trust levels;
+skipped for now since it wasn't asked for and the full-access version is simpler.
 
 ### Registering the vault as an MCP server
 
@@ -207,10 +249,14 @@ second_brain/
                               assistant memory folder name, summarization token limit,
                               research agent's venv/launcher paths, every team agent's
                               model name, the team's sandbox workspace path, the
-                              dashboard's db path/host/port/poll interval/staleness
-                              threshold);
+                              dashboard's db path/host (env-overridable as of Phase 6,
+                              for remote access)/port/poll interval/staleness threshold,
+                              and - Phase 6 - SELF_MODIFICATION_PROTECTED_PATHS, the
+                              denylist self_modification_guard.py resolves and enforces);
                               locates .env/conversation_history.json relative to its own
-                              file location, not the process's working directory
+                              file location, not the process's working directory. Itself
+                              on the protected list, since an unprotected config.py could
+                              be edited to move workspace_guard.py's sandbox boundary too
   types.py                  - shared dataclasses: NoteMatch (match_score is float), ClaudeAnswer,
                               ConversationTurn (role, content), PipelineStageResult
                               (agent_name, output_text), RunSummary, RunDetail,
@@ -237,71 +283,118 @@ second_brain/
                               client.py and writes it into the vault's Assistant Memory/ folder
                               via vault_writer.py, so it's searchable like any other note
   agents/
-    research_agent.py       - Research: investigates open questions and gathers sources for a
+    research_agent.py / research_prompt.py
+                              - Research: investigates open questions and gathers sources for a
                               plan or goal. Built on the Claude Agent SDK (not the raw anthropic
                               client), gets WebSearch/WebFetch for free plus the vault's own MCP
                               tools. Explicitly scoped to never attempt building/writing files,
                               even when handed a plan full of build milestones (see Phase 4
                               development history for why that scoping exists)
-    architect_agent.py      - Architect: turns a goal into a scoped, milestoned plan through
+    architect_agent.py / architect_prompt.py
+                              - Architect: turns a goal into a scoped, milestoned plan through
                               collaboration with the user, then hands it to Research. Read-only
                               tools + vault MCP only - no write/edit/bash, so it can never build
-                              anything itself
-    developer_agent.py      - Developer: builds whatever the plan calls for - code, scripts,
-                              configs. The first agent with real Write/Edit/Bash access,
-                              sandboxed to the workspace/ directory - actually enforced by
-                              workspace_guard.py's PreToolUse hook, not just cwd (see Phase 5
-                              development history for why cwd alone isn't enough)
-    testing_agent.py        - Testing: security/correctness/quality review. Deliberately has no
+                              anything itself. As of Phase 6, has an explicit cwd and
+                              self_modification_guard.py's read-side checks registered - see
+                              Phase 6 development history for the live vulnerability this fixed
+    developer_agent.py / developer_prompt.py
+                              - Developer: builds whatever the plan calls for - code, scripts,
+                              configs. The first agent with real Write/Edit/Bash access. Two
+                              modes as of Phase 6 (never both hooks at once): sandboxed to the
+                              workspace/ directory via workspace_guard.py by default, or - only
+                              when a run is explicitly self_improvement_mode - Topher's own real
+                              project root via self_modification_guard.py's denylist instead
+    testing_agent.py / testing_prompt.py
+                              - Testing: security/correctness/quality review. Deliberately has no
                               write or edit tools - it reports what's wrong, Developer fixes it
-                              on the next pass. Shares Developer's sandbox workspace, same
-                              workspace_guard.py enforcement, so it inspects real output, not
-                              a description of it
-    analytics_agent.py      - Analytics: the data/metrics expert - calculates, organizes, and
-                              reports on what the team produced. Read/Write/Bash scoped to the
-                              same sandbox workspace (same workspace_guard.py enforcement),
-                              plus the vault's MCP tools for organizing findings back into notes
+                              on the next pass. Same two-mode pattern as developer_agent.py; in
+                              self-improvement mode, also required to call out any new dependency
+                              or any new autonomous/scheduled-execution capability it finds
+    analytics_agent.py / analytics_prompt.py
+                              - Analytics: the data/metrics expert - calculates, organizes, and
+                              reports on what the team produced. Read/Write/Bash plus the vault's
+                              MCP tools; same two-mode pattern as developer_agent.py for its
+                              filesystem boundary
     team_workspace.py       - ensure_team_workspace_directory_exists(), the shared sandbox
                               directory helper used by developer/testing/analytics
     workspace_guard.py       - check_tool_stays_in_workspace, a Claude Agent SDK PreToolUse hook
-                              registered on developer/testing/analytics - the actual sandbox
-                              enforcement. cwd alone only sets a starting directory; this hook
-                              denies any Write/Edit/Bash call that resolves outside workspace/,
-                              verified directly against a real escape attempt (see Phase 5
-                              development history)
+                              registered on developer/testing/analytics (non-self-improvement
+                              mode) - the sandbox enforcement. cwd alone only sets a starting
+                              directory; this hook denies any Write/Edit/Bash call that resolves
+                              outside workspace/, verified directly against a real escape attempt
+                              (see Phase 5 development history). An allowlist (stay inside
+                              workspace/) - the opposite shape from self_modification_guard.py
+                              below
+    self_modification_guard.py
+                              - check_self_modification_is_safe, Phase 6's PreToolUse hook for
+                              self-improvement mode - a denylist (stay out of
+                              config.py's SELF_MODIFICATION_PROTECTED_PATHS anywhere within the
+                              whole project root), registered on Architect always and on
+                              Developer/Testing/Analytics only in self_improvement_mode. Gates
+                              Read/Write/Edit/Grep/Glob/Bash - a wider tool surface than
+                              workspace_guard.py, since self-improvement mode also has to protect
+                              secrets from being read, not just from being overwritten. Resolves
+                              every path via os.path.realpath for symlink/junction
+                              defense-in-depth and explicitly denies Bash link-creation commands
+                              (mklink/fsutil hardlink), since a hardlink can't be caught by
+                              realpath after the fact (see Phase 6 development history)
   dashboard/
     run_store.py             - owns ALL sqlite access for the dashboard (runs/stages/
-                              vault_events tables, wal mode, busy_timeout) - team_cli.py
-                              and mcp_server.py both write here directly; never talk to
-                              the dashboard server over the network
+                              vault_events tables, wal mode, busy_timeout). run_type is
+                              team_pipeline, self_improve, solo_research, or vault_qa (Phase 6
+                              added the latter three) - team_cli.py, cli.py, research_cli.py,
+                              mcp_server.py, and the dashboard server itself (via run_trigger.py)
+                              all write here directly; never talk to each other over the network
+    run_trigger.py            - Phase 6, protected (see config.py below): the shared "create a
+                              run, dispatch to the right pipeline shape for its mode, persist
+                              progress, infer the in-flight agent on failure" logic - the one
+                              place that decides whether a run gets the sandboxed workspace/
+                              boundary or the real project root. create_pending_run (fast, one
+                              insert) is split from execute_run (the actual blocking agent work)
+                              so server.py's POST /api/trigger can return a run_id immediately
+                              and run the work in a background thread instead of blocking the
+                              response; start_run wraps both together for callers with no event
+                              loop of their own (team_cli.py)
     server.py                - FastAPI app: GET /api/runs, GET /api/runs/{id},
                               GET /api/vault-events, WS /ws (sends current run snapshot
-                              on connect, then live push); background poller wraps
-                              run_store calls in asyncio.to_thread so a query never
-                              blocks websocket delivery; serves the built frontend.
+                              on connect, then live push), and - Phase 6 - POST /api/trigger
+                              (validates goal/mode, calls run_trigger.create_pending_run
+                              synchronously for an immediate run_id, then runs execute_run in a
+                              tracked background asyncio task via asyncio.to_thread). Background
+                              poller wraps every run_store call in asyncio.to_thread so a query
+                              never blocks websocket delivery; serves the built frontend.
                               Entry point: python -m second_brain.dashboard.server
   orchestrator.py            - routes a request to a subagent, or all five in sequence via
-                              run_full_team_pipeline(goal, on_stage_complete=...) - Architect ->
-                              Research -> Developer -> Testing -> Analytics, each stage's output
-                              threaded into the next stage's input as context. Every agent stays
-                              independently callable too (handle_architect_request, etc.);
-                              has zero awareness the dashboard exists - callers add that
+                              run_full_team_pipeline(goal, on_stage_complete=..., 
+                              self_improvement_mode=False) - Architect -> Research -> Developer
+                              -> Testing -> Analytics, each stage's output threaded into the next
+                              stage's input as context. Every agent stays independently callable
+                              too (handle_architect_request, etc.); has zero awareness the
+                              dashboard exists - callers add that. self_improvement_mode, added
+                              in Phase 6, is the one switch that points Developer/Testing/
+                              Analytics at the real project root instead of workspace/ - protected
+                              (config.py's SELF_MODIFICATION_PROTECTED_PATHS), since it's exactly
+                              the kind of mode-dispatch logic that must never become self-editable
   research_cli.py            - second, separate interactive entry point for the research
-                              agent; owns all of its own terminal I/O, mirrors cli.py's loop
+                              agent; owns all of its own terminal I/O, mirrors cli.py's loop.
+                              Persists each question as a one-stage solo_research run via
+                              run_trigger's run_store as of Phase 6
   team_cli.py                 - third interactive entry point, for the full agent team: runs
                               the whole pipeline on a plain goal, or dispatches to one agent
                               directly via an "agentname:" prefix; owns all of its own terminal
-                              I/O. Persists every pipeline run to run_store as it goes, and
-                              infers which agent was in flight on a failure (Ctrl+C included)
-                              purely from how many stages completed - no orchestrator.py changes
+                              I/O. Delegates run persistence and in-flight-agent inference to
+                              run_trigger.py as of Phase 6 (previously implemented this itself)
   cli.py                     - the ONLY file touching stdin/stdout for the main assistant;
                               interactive loop (input()/print()), saves session memory on
                               exit, prints a "Vault changes:" section whenever Claude writes
-                              to the vault
+                              to the vault. Persists each turn as a one-stage vault_qa run in
+                              run_store as of Phase 6
   mcp_server.py               - exposes vault_reader/vault_writer/semantic_search as 5 MCP
-                              tools; registered with Claude Code via .mcp.json. Also the
-                              dashboard's vault-activity instrumentation point (not
-                              vault_writer.py - see Phase 5 development history for why)
+                              tools; registered with Claude Code via .mcp.json. The dashboard's
+                              vault-activity instrumentation point for the team's agents (not
+                              vault_writer.py - see Phase 5 development history for why);
+                              claude/client.py has its own separate instrumentation point for
+                              cli.py's vault writes, added in Phase 6
 run_mcp_server.py              - self-locating launcher for mcp_server.py; works regardless
                               of the spawning process's working directory
 workspace/                     - sandbox directory developer/testing/analytics operate in;
@@ -311,19 +404,31 @@ dashboard-frontend/            - React + TypeScript + Vite dashboard UI, a separ
                               (own package.json) sibling to second_brain/. src/hooks/
                               useDashboardSocket.ts owns the WebSocket connection; src/
                               components/ has AgentStatusBoard, VaultActivityFeed,
-                              HistoryTimeline, RunDetailPanel; src/styles/theme.css is the
-                              dark mission-control palette. `npm run build` output (dist/)
-                              is what the dashboard server serves, and is gitignored
+                              HistoryTimeline, RunDetailPanel, and - Phase 6 - TriggerPanel
+                              (the goal/mode form that calls POST /api/trigger, with its own
+                              confirmation dialog for self_improve mode) and
+                              NonTeamRunIndicator (AgentStatusBoard's 5-card grid only fits
+                              team_pipeline/self_improve runs; every other run_type gets this
+                              simpler one-line indicator instead); src/runTypeDisplay.ts holds
+                              the shared run_type labels; src/styles/theme.css is the dark
+                              mission-control palette. `npm run build` output (dist/) is what
+                              the dashboard server serves, and is gitignored
 dashboard.db                   - the dashboard's run history (sqlite, WAL mode - gitignored
-                              along with its -wal/-shm sidecar files)
+                              along with its -wal/-shm sidecar files). On the Phase 6
+                              self-modification denylist, including its -wal/-shm sidecars -
+                              it's the team's own audit trail, and the -wal file is open
+                              concurrently by the dashboard server if one is running
 .mcp.json                      - Claude Code project-scoped MCP server registration (gitignored -
-                              contains a machine-specific absolute path; copy .mcp.json.example)
+                              contains a machine-specific absolute path; copy .mcp.json.example).
+                              On the Phase 6 self-modification denylist
 requirements.txt              - anthropic, python-dotenv, chromadb, sentence-transformers,
                               mcp (pinned <2.0.0 - claude-agent-sdk requires it), claude-agent-sdk,
                               fastapi, uvicorn[standard]
-.env.example                  - ANTHROPIC_API_KEY, OBSIDIAN_VAULT_PATH
+.env.example                  - ANTHROPIC_API_KEY, OBSIDIAN_VAULT_PATH, and - Phase 6 -
+                              DASHBOARD_SERVER_HOST (optional, for remote access)
 conversation_history.json     - short-term memory: persisted chat log at the project root
-                              (gitignored — personal data, never commit this)
+                              (gitignored — personal data, never commit this). On the Phase 6
+                              self-modification denylist
 ```
 
 **Vault structure note:** the vault gets an `Assistant Memory/` folder (created
@@ -374,7 +479,7 @@ Intentional, not bugs to silently "fix":
 - `run_full_team_pipeline` always runs the full Architect → Research → Developer → Testing → Analytics chain — no way to start partway through or skip a stage yet, beyond addressing one agent directly outside the pipeline
 - Developer/Testing/Analytics are sandboxed to a single shared `workspace/` directory, not a per-goal or per-project directory — running two unrelated goals back to back means the second run's agents can see the first run's files
 - The dashboard shows only one active run at a time by design — nothing stops two `team_cli.py` processes running concurrently, but the status board only ever surfaces the single most-recently-started run; concurrent sessions produce undefined status-board behavior, acceptable for actual single-user usage
-- The vault activity feed only ever shows Architect/Research/Analytics activity — Developer/Testing have no vault MCP tools wired up, and `cli.py`'s own vault writes bypass `mcp_server.py` entirely (see Phase 5 development history)
+- The vault activity feed only ever shows Architect/Research/Analytics activity — Developer/Testing have no vault MCP tools wired up. `cli.py`'s own vault writes go through a separate instrumentation point in `claude/client.py` (not `mcp_server.py`, which only the team's agents ever call) as of Phase 6, so they now appear in the same feed too (see Phase 6 development history)
 - Single-agent requests in `team_cli.py` (the `architect:`/`developer:`/etc. prefix) never appear in the dashboard's history — only full pipeline runs are persisted
 - A run abandoned mid-flight (Ctrl+C that somehow escapes the handler, a hard crash) displays as "interrupted" once its most recent activity goes stale (25 minutes) rather than a spinner forever — a read-time display heuristic, not a background reaper
 - `workspace_guard.py`'s Bash-command check is a best-effort regex scan for Windows absolute paths, not an OS-level jail — proportionate to a single-user personal assistant, but not airtight against a sufficiently obfuscated command (environment variable expansion, indirection through a generated script). Write/Edit's own check is fully reliable, since those tools take a structured `file_path` argument rather than a free-form shell string
@@ -634,21 +739,123 @@ visually confirmed, only that the right HTTP/WebSocket data reaches the frontend
 correctly. Worth an actual look in a browser before treating the visual design
 itself as verified.
 
+### Phase 6 — self-improving team, interactive + remote dashboard
+
+Three foundational questions were asked directly and answered before any design
+work started: self-modification may commit directly to the codebase but must
+never touch its own guardrails; autonomy stays fully manual (the dashboard is
+always up, but every run still starts because a human triggered it); remote
+access is private-network-only, with no login system — the network itself is the
+access boundary.
+
+**A live, unrelated vulnerability found before any new design work began:**
+Architect had unrestricted real-filesystem `Read`/`Glob`/`Grep` access with no
+guard hook at all, because `architect_agent.py` set no `cwd` — an unset `cwd`
+means the SDK's subprocess inherits the parent process's own working directory,
+the project root, whenever `team_cli.py` is run the documented way. Nothing
+stopped `Read(".env")`. Fixed first, standalone, before the rest of the phase:
+Architect now gets an explicit `cwd` and the same guard machinery below.
+
+**Self-modification needed a denylist, not a bigger allowlist.** The existing
+`workspace_guard.py` enforces "stay inside `workspace/`" — self-modification
+needed "stay out of these specific paths within the whole project," a
+structurally different check, so it's a separate module
+(`second_brain/agents/self_modification_guard.py`), never registered alongside
+`workspace_guard.py` on the same run. A Plan subagent pressure-tested the first
+draft against the real codebase specifically on this piece, since it's the
+highest-stakes part of the phase, and found real gaps a design-only review would
+have missed: an absolute-path-only regex would have let `cat .env` and
+`findstr ANTHROPIC .env` sail straight through on their relative paths; unscoped
+`Grep`/`Glob` from the project root never *names* `.env` but walks straight
+through it, so search tools needed an ancestor-direction check, not a point-wise
+one; `config.py` itself had to be protected, since it defines the sandbox
+boundary `workspace_guard.py` derives from; and the mode-dispatch logic deciding
+"this run gets the unrestricted self-mod `cwd`" had to be protected too, since an
+agent that can't beat the path checks could instead just make ordinary runs
+always resolve to the unrestricted mode. The final denylist also covers
+`.mcp.json`, `.git`, `.claude`, `conversation_history.json`, `dashboard.db*`, and
+`venv/` — anything gitignored, on the reasoning that "it's fine because it's a
+reviewable git diff" (the whole safety argument this capability leans on) is
+false for anything git never sees. Bash commands that create hardlinks/symlinks
+(`mklink`, `fsutil hardlink`) are denied outright by command pattern, not path
+resolution, since a hardlink is a second directory entry to the same file and
+can't be detected by `realpath()` after the fact.
+
+**This protects files, not capabilities, and the README says so rather than
+papering over it.** A denylist stops specific files from being edited; it cannot
+stop the team from writing *new* code that adds exactly the scheduling or
+proactive self-triggering behavior the user said was out of scope, since a new
+file isn't touching anything denylisted. Mitigated with a soft layer, not a false
+promise of a hard block: every agent's system prompt now carries an explicit
+instruction never to build autonomous or scheduled execution unless the user
+asked for exactly that in the current conversation, plus a standing instruction
+for Testing/Analytics to flag it if a change introduces new background-execution
+capability, so a human notices even where the file-level guard structurally
+cannot.
+
+**Prompt/wiring split, done for real this time.** Each agent's personality
+(`developer_prompt.py`, etc.) is now a separate, freely-editable module from its
+wiring (`developer_agent.py` — tool grants, `cwd`, hooks, model choice), so
+"the team can improve its own personality" and "the team can never expand its
+own permissions" can coexist: the prompt files carry no authority over what an
+agent can actually *do*. Verified with a real run through the unmodified
+5-agent pipeline after the split, confirming output was equivalent to before it.
+
+**Milestone C wired a genuine async wrinkle, not a hypothetical one.** The
+existing `ask_developer`/`ask_research_agent`/etc. wrappers call `asyncio.run()`
+internally, which raises if called from inside a loop that's already running —
+exactly FastAPI's situation. Fixed with `asyncio.to_thread(...)` around the
+existing synchronous call, the same pattern already proven for Phase 5's SQLite
+polling, with zero changes needed to `orchestrator.py` or any agent module.
+`run_trigger.py` splits `create_pending_run` (one fast synchronous insert) from
+`execute_run` (the actual blocking pipeline work), so `POST /api/trigger` can
+return a `run_id` immediately — confirmed at 0.03 seconds — while the run
+executes in the background and streams to the dashboard over the same WebSocket
+mechanism Phase 5 already had, unchanged.
+
+**A second real, live sandbox-escape bug, found the same way Phase 5's was —
+during this phase's own end-to-end verification, not a design review.**
+Triggering an ordinary (non-self-improvement) `team_pipeline` run through the
+real `/api/trigger` endpoint, Developer used Bash with a *relative* path to
+append a new dependency to the real project-root `requirements.txt` and
+`pip install` it into the real shared venv — both completely outside
+`workspace/`, both confirmed directly (reading the modified file, importing the
+newly-installed package) rather than taken on the agent's word. Root cause:
+`workspace_guard.py`'s Bash check, built in Phase 5, only scanned for absolute
+Windows drive-letter paths and never resolved relative tokens against the
+working directory at all — exactly gap #1 the Plan review had already flagged
+for the *new* self-mod guard, just not yet back-ported to the older one it was
+sitting right next to. Separately, `pip install`/`npm install` commands contain
+no file path in their command text at all, so no path check — however
+thorough — could ever catch them; their side effect is mutating the one shared
+venv every `workspace/` run uses, not writing to a location expressible as a
+path. Fixed by porting the self-mod guard's own per-token, cwd-relative
+resolution back into `workspace_guard.py`, plus an explicit command-pattern
+denial for package-manager install/uninstall commands. Verified with a
+dedicated 14-scenario test suite covering the exact real-bug command, the
+original Phase 5 absolute-path escape (still denied, a regression check), pip
+and npm install/uninstall in several forms, and legitimate in-workspace
+commands including bare words like "pytest" or "install" appearing in normal
+prose (still allowed, confirming no false positives). The stray
+`requirements.txt` line was reverted; the residual `pytest` install was left in
+the local venv as harmless (it's gitignored, never reaches the repository).
+
 ## Next steps
 
-All five originally-planned phases are complete. Candidates for what comes after,
+All six phases planned so far are complete. Candidates for what comes after,
 roughly in the order the user has flagged wanting them (not urgent, no fixed
 timeline):
 
 **User-flagged future wants (not built yet, deliberately deferred):**
 
-- Dashboard: watch **and** interact — trigger new goals, talk to individual agents, from the UI itself, not just the CLI
-- Dashboard/team coverage of everything Topher does, not just the 5-agent team — would mean instrumenting `claude/client.py`'s write tools and `research_cli.py` the same way `mcp_server.py` is instrumented today (additive, same pattern, no rearchitecture — see Phase 5 development history)
-- Remote access to the dashboard — currently hard-blocked to localhost by `DASHBOARD_SERVER_HOST`; would need real authentication designed first, not just changing the bind address
+- Voice activation and communication — explicitly called out by the user as a later phase, not part of Phase 6
+- Real scheduling/proactive autonomy — Phase 6 deliberately kept the team "always up but user-triggered": the dashboard stays running and reachable, but every run still starts because the user explicitly asked. Actually letting the team initiate work on its own (a poller, a cron job, a background loop) would be a real, separate design decision, not a natural extension of what's built
+- The "protects files, not capabilities" ceiling on self-modification — `self_modification_guard.py` is a denylist, so it can't stop new code in a non-denylisted file from implementing exactly the autonomous/scheduled behavior above scope. Currently mitigated only with soft prompt-level instructions on every agent and a standing instruction for Testing to flag it explicitly if it shows up in a self-improvement-mode review (see Phase 6 development history) — worth a harder mitigation if this ever becomes a real risk rather than a theoretical one
+- The localhost-only-trigger middle ground for remote access — binding GET/WS broadly for remote watching while requiring `127.0.0.1` specifically for `POST /api/trigger`, so triggering stays local-only even if watching doesn't (see the Remote access section above) — not built since it wasn't asked for
 
 **Also identified, not urgent, no particular priority:**
 
-- A real visual QA pass on the dashboard in an actual browser — the current build was only verified via HTTP/WebSocket correctness, not eyes-on-screen (see Phase 5 development history)
+- A real visual QA pass on the dashboard in an actual browser — the underlying data/HTTP/WebSocket correctness has been verified end-to-end (Phase 5 and Phase 6 development history), but the actual rendered UI has still never been confirmed eyes-on-screen in a live browser
 - Chunking notes by heading section instead of embedding them whole
 - Richer per-note metadata (tags, modified time) for filtering/re-ranking search results
 - File-watcher + incremental re-indexing, instead of rebuilding the whole embedding index every call

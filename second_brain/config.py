@@ -62,7 +62,35 @@ ANALYTICS_AGENT_MODEL_NAME = "sonnet"
 # folder (onedrive/dropbox) - wal mode's sidecar files do not tolerate sync-driven
 # file locking
 DASHBOARD_DATABASE_PATH = os.path.join(PROJECT_ROOT_DIRECTORY, "dashboard.db")
-DASHBOARD_SERVER_HOST = "127.0.0.1"
+DASHBOARD_SERVER_HOST = os.environ.get("DASHBOARD_SERVER_HOST", "127.0.0.1")
 DASHBOARD_SERVER_PORT = 8420
 DASHBOARD_POLL_INTERVAL_SECONDS = 0.5
 DASHBOARD_STALE_RUN_THRESHOLD_MINUTES = 25
+
+# phase 6: self-modification - the team may work on the project's own real source
+# (not just workspace/) in self-improvement mode. these relative paths are resolved
+# and protected by self_modification_guard.py - never editable, readable, or
+# bash-referenceable by any agent, in any mode, no matter what it's asked to do or
+# how the request is phrased. deliberately broader than "secrets": anything
+# gitignored is invisible to the "it's a reviewable git diff" argument this whole
+# capability leans on, so gitignored paths (conversation_history.json, dashboard.db,
+# venv/) belong here too, not just credentials
+SELF_MODIFICATION_PROTECTED_PATHS = [
+    "second_brain/agents/workspace_guard.py",
+    "second_brain/agents/self_modification_guard.py",
+    "second_brain/agents/architect_agent.py",
+    "second_brain/agents/research_agent.py",
+    "second_brain/agents/developer_agent.py",
+    "second_brain/agents/testing_agent.py",
+    "second_brain/agents/analytics_agent.py",
+    "second_brain/config.py",
+    "second_brain/orchestrator.py",
+    "second_brain/dashboard/run_trigger.py",
+    ".env",
+    ".mcp.json",
+    ".git",
+    ".claude",
+    "conversation_history.json",
+    "dashboard.db",
+    "venv"
+]

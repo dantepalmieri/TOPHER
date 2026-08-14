@@ -2,7 +2,10 @@
 # cli.py's i/o-ownership convention for its own separate entry point
 
 import sys
-from second_brain.orchestrator import handle_research_request
+import uuid
+from second_brain.orchestrator import handle_research_request, RESEARCH_STAGE_NAME
+from second_brain.types import PipelineStageResult
+from second_brain.dashboard import run_store
 
 TERMINAL_PROMPT_TEXT = "Research question: "
 SEARCHING_MESSAGE = "Researching..."
@@ -28,6 +31,23 @@ def _is_exit_command(user_answer):
     return lower_case_answer in EXIT_COMMANDS
 
 
+def _ask_with_persistence(user_question):
+    # runs one research question through the orchestrator, persisting it to the
+    # dashboard's run_store as a one-stage run - mirrors cli.py's _ask_with_persistence
+    run_id = uuid.uuid4().hex
+    run_store.create_run(run_id, user_question, run_type=run_store.SOLO_RESEARCH_RUN_TYPE)
+
+    try:
+        research_answer = handle_research_request(user_question)
+        stage_result = PipelineStageResult(agent_name=RESEARCH_STAGE_NAME, output_text=research_answer)
+        run_store.record_stage_result(run_id, stage_result)
+        run_store.mark_run_finished(run_id, run_store.RUN_STATUS_DONE)
+        return research_answer
+    except (Exception, KeyboardInterrupt):
+        run_store.mark_run_finished(run_id, run_store.RUN_STATUS_ERROR)
+        raise
+
+
 def run_research_cli():
     # main loop: ask a research question, run it through the orchestrator, print the
     # answer, and repeat until the user exits
@@ -36,12 +56,13 @@ def run_research_cli():
     # encode characters claude's answers may contain; reconfiguring stdout to utf-8
     # stops printing from crashing on those answers, matching cli.py's fix
     sys.stdout.reconfigure(encoding="utf-8")
+    run_store.initialize_database()
 
     user_question = _prompt_user_for_question()
 
     while not _is_exit_command(user_question):
         print(SEARCHING_MESSAGE)
-        research_answer = handle_research_request(user_question)
+        research_answer = _ask_with_persistence(user_question)
         print("\n" + research_answer)
         print()
         user_question = _prompt_user_for_question()

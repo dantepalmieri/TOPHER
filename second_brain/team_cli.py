@@ -2,25 +2,14 @@
 # cli.py's and research_cli.py's i/o-ownership convention for its own entry point
 
 import sys
-import uuid
 from second_brain.orchestrator import (
     handle_architect_request,
     handle_research_request,
     handle_developer_request,
     handle_testing_request,
-    handle_analytics_request,
-    run_full_team_pipeline,
-    ARCHITECT_STAGE_NAME,
-    RESEARCH_STAGE_NAME,
-    DEVELOPER_STAGE_NAME,
-    TESTING_STAGE_NAME,
-    ANALYTICS_STAGE_NAME
+    handle_analytics_request
 )
-from second_brain.dashboard import run_store
-
-PIPELINE_STAGE_ORDER = [
-    ARCHITECT_STAGE_NAME, RESEARCH_STAGE_NAME, DEVELOPER_STAGE_NAME, TESTING_STAGE_NAME, ANALYTICS_STAGE_NAME
-]
+from second_brain.dashboard import run_store, run_trigger
 
 TERMINAL_PROMPT_TEXT = "Team request: "
 EXIT_MESSAGE = "Ending team session."
@@ -90,40 +79,17 @@ def _print_stage_result(stage_result):
     print(stage_result.output_text)
 
 
-def _infer_in_flight_agent(completed_stage_names):
-    # the fixed pipeline order plus how many stages finished before a failure
-    # unambiguously identifies which agent was running when it happened - no change
-    # to orchestrator.py needed to know this
-    completed_count = len(completed_stage_names)
-
-    if completed_count < len(PIPELINE_STAGE_ORDER):
-        return PIPELINE_STAGE_ORDER[completed_count]
-
-    return ANALYTICS_STAGE_NAME
-
-
 def _run_full_pipeline_with_persistence(goal):
-    # runs the full pipeline, persisting progress to the dashboard's run_store as it
-    # goes. run_store writes are local sqlite, never network, so this never depends
-    # on a dashboard server actually being up - the cli works identically either way
-    run_id = uuid.uuid4().hex
-    run_store.create_run(run_id, goal)
-    completed_stage_names = []
-
-    def _persist_and_print(stage_result):
-        run_store.record_stage_result(run_id, stage_result)
-        completed_stage_names.append(stage_result.agent_name)
-        _print_stage_result(stage_result)
-
+    # runs the full pipeline via the shared run_trigger module, which persists
+    # progress to the dashboard's run_store as it goes. run_store writes are local
+    # sqlite, never network, so this never depends on a dashboard server actually
+    # being up - the cli works identically either way
     try:
-        run_full_team_pipeline(goal, on_stage_complete=_persist_and_print)
-        run_store.mark_run_finished(run_id, run_store.RUN_STATUS_DONE)
+        run_trigger.start_run(goal, run_trigger.TEAM_PIPELINE_MODE, on_stage_complete=_print_stage_result)
     except (Exception, KeyboardInterrupt) as pipeline_error:
         # a plain except Exception would not catch ctrl+c, the single most likely
         # real-world way a run gets abandoned mid-flight for a solo local user
-        in_flight_agent = _infer_in_flight_agent(completed_stage_names)
-        run_store.mark_run_finished(run_id, run_store.RUN_STATUS_ERROR)
-        print("\n" + in_flight_agent + " failed: " + str(pipeline_error))
+        print("\n" + str(pipeline_error))
 
 
 def _handle_single_agent_request(agent_prefix, remaining_text):

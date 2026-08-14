@@ -32,6 +32,7 @@ export type CurrentRunSnapshotMessage = RunDetail & { type: 'current_run_snapsho
 export interface RunStartedMessage {
   type: 'run_started'
   run_id: string
+  run_type: string
   goal: string
   started_at: string
 }

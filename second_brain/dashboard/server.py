@@ -1,8 +1,15 @@
 # phase 5: the dashboard backend - serves the built frontend, exposes rest endpoints
 # for initial state, and pushes live updates to connected browsers over websocket.
-# never talks to team_cli.py/mcp_server.py directly - everything flows through the
-# shared sqlite database in run_store.py, so this process can be stopped, started, or
-# crash without affecting the actual assistant
+# reads flow through the shared sqlite database in run_store.py, so watching never
+# depends on team_cli.py/mcp_server.py being alive.
+#
+# phase 6: POST /api/trigger is the one place this changes - it starts a real run via
+# run_trigger.py, the same shared module team_cli.py calls. the run still executes
+# out-of-process from this handler's perspective (asyncio.to_thread), and it still
+# reports progress the only way this server ever finds out about anything: by writing
+# to run_store, same as team_cli.py or mcp_server.py would. this process can still be
+# stopped, started, or crash without corrupting a run already in flight - only the
+# live progress view is lost, not the run itself
 
 import asyncio
 import os
@@ -10,6 +17,7 @@ import contextlib
 import dataclasses
 import fastapi
 import uvicorn
+import pydantic
 from fastapi.staticfiles import StaticFiles
 from second_brain.config import (
     DASHBOARD_SERVER_HOST,
@@ -17,13 +25,14 @@ from second_brain.config import (
     DASHBOARD_POLL_INTERVAL_SECONDS,
     PROJECT_ROOT_DIRECTORY
 )
-from second_brain.dashboard import run_store
+from second_brain.dashboard import run_store, run_trigger
 
 DEFAULT_RUNS_LIMIT = 20
 DEFAULT_VAULT_EVENTS_LIMIT = 50
 FRONTEND_BUILD_DIRECTORY = os.path.join(PROJECT_ROOT_DIRECTORY, "dashboard-frontend", "dist")
 
 RUN_NOT_FOUND_MESSAGE = "No run with this id exists."
+EMPTY_GOAL_MESSAGE = "goal must not be empty."
 
 RUN_STARTED_MESSAGE_TYPE = "run_started"
 STAGE_COMPLETE_MESSAGE_TYPE = "stage_complete"
@@ -61,6 +70,20 @@ class ConnectionManager:
 
 connection_manager = ConnectionManager()
 
+# asyncio only holds a weak reference to a task once it's created - with nothing else
+# referencing it, it can be garbage-collected mid-run. this set is that reference; a
+# task removes itself once done via add_done_callback below
+_background_run_tasks = set()
+
+
+class TriggerRequest(pydantic.BaseModel):
+    goal: str
+    mode: str
+
+
+class TriggerResponse(pydantic.BaseModel):
+    run_id: str
+
 
 async def _poll_and_broadcast_loop():
     # detects new pipeline activity and vault events by polling run_store on an
@@ -85,6 +108,7 @@ async def _poll_and_broadcast_loop():
                 await connection_manager.broadcast({
                     "type": RUN_STARTED_MESSAGE_TYPE,
                     "run_id": current_snapshot.run_id,
+                    "run_type": current_snapshot.run_type,
                     "goal": current_snapshot.goal,
                     "started_at": current_snapshot.started_at
                 })
@@ -155,6 +179,37 @@ def get_run(run_id: str):
 def get_vault_events(limit: int = DEFAULT_VAULT_EVENTS_LIMIT):
     vault_events = run_store.list_vault_events(limit)
     return vault_events
+
+
+async def _execute_run_in_background(run_id, goal, mode):
+    # run_trigger.execute_run already persists success/failure to run_store before
+    # returning or raising - the poll loop above broadcasts that over the websocket
+    # to every connected browser, so there is nothing further to do with the outcome
+    # here. this coroutine exists only so /api/trigger's response doesn't block for
+    # the run's entire duration
+    try:
+        await asyncio.to_thread(run_trigger.execute_run, run_id, goal, mode)
+    except Exception:
+        pass
+
+
+@app.post("/api/trigger", response_model=TriggerResponse)
+async def trigger_run(trigger_request: TriggerRequest):
+    goal = trigger_request.goal.strip()
+    if goal == "":
+        raise fastapi.HTTPException(status_code=400, detail=EMPTY_GOAL_MESSAGE)
+
+    if trigger_request.mode not in run_trigger.VALID_TRIGGER_MODES:
+        detail = "mode must be one of: " + ", ".join(sorted(run_trigger.VALID_TRIGGER_MODES))
+        raise fastapi.HTTPException(status_code=400, detail=detail)
+
+    run_id = await asyncio.to_thread(run_trigger.create_pending_run, goal, trigger_request.mode)
+
+    background_task = asyncio.create_task(_execute_run_in_background(run_id, goal, trigger_request.mode))
+    _background_run_tasks.add(background_task)
+    background_task.add_done_callback(_background_run_tasks.discard)
+
+    return TriggerResponse(run_id=run_id)
 
 
 @app.websocket("/ws")

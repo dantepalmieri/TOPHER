@@ -12,10 +12,15 @@ interface DashboardState {
   vaultEvents: VaultEvent[]
 }
 
-function buildRunSummaryFromStartedMessage(message: { run_id: string; goal: string; started_at: string }): RunSummary {
+function buildRunSummaryFromStartedMessage(message: {
+  run_id: string
+  run_type: string
+  goal: string
+  started_at: string
+}): RunSummary {
   return {
     run_id: message.run_id,
-    run_type: 'team_pipeline',
+    run_type: message.run_type,
     goal: message.goal,
     started_at: message.started_at,
     finished_at: null,
