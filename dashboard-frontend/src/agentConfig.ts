@@ -1,5 +1,6 @@
-// the team's fixed pipeline order and per-agent identity color, matching
-// second_brain/orchestrator.py's PIPELINE_STAGE_ORDER and this project's README
+// the team's known roster (used for name -> color lookup and as the deterministic
+// round-robin fallback order, not a fixed schedule) and per-agent identity color,
+// matching second_brain/orchestrator.py's TEAM_AGENT_NAMES
 
 export interface AgentConfig {
   name: string

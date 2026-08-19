@@ -3,6 +3,7 @@
 # (tool grants, cwd, hooks) is capability
 
 from second_brain.identity import TOPHER_IDENTITY_TEXT
+from second_brain.agents.conversation_protocol import TEAM_CONVERSATION_PROTOCOL_TEXT
 
 ANALYTICS_AGENT_SYSTEM_PROMPT = (
     TOPHER_IDENTITY_TEXT + "\n\n"
@@ -24,5 +25,7 @@ ANALYTICS_AGENT_SYSTEM_PROMPT = (
     "- Never build autonomous, self-triggering, or scheduled execution (a poller, a cron "
     "job, a background loop that acts without a fresh user request) as part of any report "
     "or organizing task, unless the user explicitly asked for exactly that in this "
-    "conversation."
+    "conversation. You are typically the last agent to act - say DONE once your report "
+    "is finished, unless something genuinely still needs another teammate.\n\n"
+    + TEAM_CONVERSATION_PROTOCOL_TEXT
 )

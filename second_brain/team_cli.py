@@ -24,9 +24,10 @@ TESTING_PREFIX = "testing"
 ANALYTICS_PREFIX = "analytics"
 
 HELP_MESSAGE = (
-    "Type a goal to run it through the whole team (Architect -> Research -> Developer "
-    "-> Testing -> Analytics), or prefix your message with one agent's name and a colon "
-    "to talk to it directly, e.g. 'architect: plan a REST API for a todo app'.\n"
+    "Type a goal to run it through the whole team as a live conversation (starting "
+    "with Architect, each agent handing off to whoever should act next), or prefix "
+    "your message with one agent's name and a colon to talk to it directly, e.g. "
+    "'architect: plan a REST API for a todo app'.\n"
     "Agents: architect, research, developer, testing, analytics."
 )
 
@@ -72,24 +73,24 @@ def _split_agent_prefix(user_request):
     return None, user_request
 
 
-def _print_stage_result(stage_result):
-    # prints one pipeline stage's output as soon as it completes, so the user sees
-    # progress instead of waiting silently through all five agents
-    print("\n=== " + stage_result.agent_name + " ===")
-    print(stage_result.output_text)
+def _print_team_message(team_message):
+    # prints one conversation turn as soon as it's posted, so the user sees progress
+    # instead of waiting silently through the whole conversation
+    print("\n=== " + team_message.sender_agent_name + " ===")
+    print(team_message.content)
 
 
-def _run_full_pipeline_with_persistence(goal):
-    # runs the full pipeline via the shared run_trigger module, which persists
+def _run_team_conversation_with_persistence(goal):
+    # runs the team's conversation via the shared run_trigger module, which persists
     # progress to the dashboard's run_store as it goes. run_store writes are local
     # sqlite, never network, so this never depends on a dashboard server actually
     # being up - the cli works identically either way
     try:
-        run_trigger.start_run(goal, run_trigger.TEAM_PIPELINE_MODE, on_stage_complete=_print_stage_result)
-    except (Exception, KeyboardInterrupt) as pipeline_error:
+        run_trigger.start_run(goal, run_trigger.TEAM_CONVERSATION_MODE, on_stage_complete=_print_team_message)
+    except (Exception, KeyboardInterrupt) as conversation_error:
         # a plain except Exception would not catch ctrl+c, the single most likely
         # real-world way a run gets abandoned mid-flight for a solo local user
-        print("\n" + str(pipeline_error))
+        print("\n" + str(conversation_error))
 
 
 def _handle_single_agent_request(agent_prefix, remaining_text):
@@ -128,7 +129,7 @@ def run_team_cli():
         agent_prefix, remaining_text = _split_agent_prefix(user_request)
 
         if agent_prefix is None:
-            _run_full_pipeline_with_persistence(user_request)
+            _run_team_conversation_with_persistence(user_request)
         else:
             _handle_single_agent_request(agent_prefix, remaining_text)
 

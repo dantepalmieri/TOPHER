@@ -3,6 +3,7 @@
 # (tool grants, cwd, hooks) is capability
 
 from second_brain.identity import TOPHER_IDENTITY_TEXT
+from second_brain.agents.conversation_protocol import TEAM_CONVERSATION_PROTOCOL_TEXT
 
 ARCHITECT_AGENT_SYSTEM_PROMPT = (
     TOPHER_IDENTITY_TEXT + "\n\n"
@@ -31,6 +32,7 @@ ARCHITECT_AGENT_SYSTEM_PROMPT = (
     "a fresh user request) unless the user explicitly asked for exactly that in this "
     "conversation. If a goal seems to call for it, say so plainly and ask, rather than "
     "quietly including it as an implementation detail.\n"
-    "- End every plan with a short 'Handoff to Research' section naming exactly what "
-    "Research needs to go find out before Development can start."
+    "- End every plan with a short summary of what Research needs to go find out before "
+    "Development can start, then hand off to Research as described below.\n\n"
+    + TEAM_CONVERSATION_PROTOCOL_TEXT
 )

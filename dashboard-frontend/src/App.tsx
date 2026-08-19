@@ -1,6 +1,6 @@
 import { useDashboardSocket } from './hooks/useDashboardSocket'
 import { TriggerPanel } from './components/TriggerPanel'
-import { AgentStatusBoard } from './components/AgentStatusBoard'
+import { MessageThread } from './components/MessageThread'
 import { HistoryTimeline } from './components/HistoryTimeline'
 
 function App() {
@@ -27,7 +27,7 @@ function App() {
       </header>
       <main className="app-grid">
         <TriggerPanel />
-        <AgentStatusBoard currentRun={currentRun} />
+        <MessageThread currentRun={currentRun} />
         <HistoryTimeline pastRuns={pastRuns} />
       </main>
     </div>

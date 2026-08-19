@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { RunDetail } from '../types'
 import { AGENT_ORDER } from '../agentConfig'
+import { MessageBubble } from './MessageBubble'
+import { TEAM_CONVERSATION_RUN_TYPES } from '../runTypeDisplay'
 
 interface RunDetailPanelProps {
   runId: string
@@ -20,8 +22,10 @@ function stopClickPropagation(event: React.MouseEvent) {
   event.stopPropagation()
 }
 
-// the full multi-stage transcript for one past run - fetched on demand rather than
-// carried in the history list, since the history list only needs summary fields
+// the full transcript for one past run - fetched on demand rather than carried in
+// the history list, since the history list only needs summary fields. a
+// team_conversation run renders as message bubbles (the live thread's own
+// presentation); a solo_research run still renders its single stage the old way
 export function RunDetailPanel({ runId, onClose }: RunDetailPanelProps) {
   const [runDetail, setRunDetail] = useState<RunDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -49,6 +53,18 @@ export function RunDetailPanel({ runId, onClose }: RunDetailPanelProps) {
   let bodyContent
   if (isLoading === true || runDetail === null) {
     bodyContent = <p className="text-muted">Loading transcript...</p>
+  } else if (TEAM_CONVERSATION_RUN_TYPES.has(runDetail.run_type)) {
+    const messageBubbles = []
+    for (let messageIndex = 0; messageIndex < runDetail.messages.length; messageIndex++) {
+      messageBubbles.push(<MessageBubble key={messageIndex} message={runDetail.messages[messageIndex]} />)
+    }
+
+    bodyContent = (
+      <div className="run-detail-body">
+        <p className="text-secondary">{runDetail.goal}</p>
+        <div className="message-thread-list">{messageBubbles}</div>
+      </div>
+    )
   } else {
     const stageBlocks = []
     for (let stageIndex = 0; stageIndex < runDetail.stages.length; stageIndex++) {

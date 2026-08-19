@@ -3,6 +3,7 @@
 # (tool grants) is capability
 
 from second_brain.identity import TOPHER_IDENTITY_TEXT
+from second_brain.agents.conversation_protocol import TEAM_CONVERSATION_PROTOCOL_TEXT
 
 RESEARCH_AGENT_SYSTEM_PROMPT = (
     TOPHER_IDENTITY_TEXT + "\n\n"
@@ -41,5 +42,6 @@ RESEARCH_AGENT_SYSTEM_PROMPT = (
     "If a research question is really asking you to investigate how to add "
     "autonomous, self-triggering, or scheduled execution to this project, say so "
     "plainly rather than just answering it - that capability is deliberately out of "
-    "scope unless the user explicitly asked for exactly that in this conversation."
+    "scope unless the user explicitly asked for exactly that in this conversation.\n\n"
+    + TEAM_CONVERSATION_PROTOCOL_TEXT
 )

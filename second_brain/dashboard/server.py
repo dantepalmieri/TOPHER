@@ -35,6 +35,7 @@ EMPTY_GOAL_MESSAGE = "goal must not be empty."
 
 RUN_STARTED_MESSAGE_TYPE = "run_started"
 STAGE_COMPLETE_MESSAGE_TYPE = "stage_complete"
+MESSAGE_ADDED_MESSAGE_TYPE = "message_added"
 RUN_FINISHED_MESSAGE_TYPE = "run_finished"
 CURRENT_RUN_SNAPSHOT_MESSAGE_TYPE = "current_run_snapshot"
 
@@ -90,6 +91,7 @@ async def _poll_and_broadcast_loop():
     # which would otherwise delay delivery to every connected client
     last_run_id = None
     last_stage_count = 0
+    last_message_count = 0
     last_broadcast_status = None
 
     while True:
@@ -101,6 +103,7 @@ async def _poll_and_broadcast_loop():
             if current_snapshot.run_id != last_run_id:
                 last_run_id = current_snapshot.run_id
                 last_stage_count = 0
+                last_message_count = 0
                 last_broadcast_status = None
                 await connection_manager.broadcast({
                     "type": RUN_STARTED_MESSAGE_TYPE,
@@ -121,6 +124,22 @@ async def _poll_and_broadcast_loop():
                         "output_text": current_stage.output_text
                     })
                 last_stage_count = new_stage_count
+
+            if len(current_snapshot.messages) > last_message_count:
+                new_message_count = len(current_snapshot.messages)
+                for message_index in range(last_message_count, new_message_count):
+                    current_message = current_snapshot.messages[message_index]
+                    await connection_manager.broadcast({
+                        "type": MESSAGE_ADDED_MESSAGE_TYPE,
+                        "run_id": current_snapshot.run_id,
+                        "turn_number": current_message.turn_number,
+                        "sender_agent_name": current_message.sender_agent_name,
+                        "recipient_agent_name": current_message.recipient_agent_name,
+                        "content": current_message.content,
+                        "is_done_signal": current_message.is_done_signal,
+                        "created_at": current_message.created_at
+                    })
+                last_message_count = new_message_count
 
             status_just_changed = current_snapshot.status != last_broadcast_status
             if status_just_changed and current_snapshot.status != run_store.RUN_STATUS_RUNNING:

@@ -1,8 +1,8 @@
-// shared status label/icon/color lookup, used by both the agent status board and
-// the history timeline - the two use overlapping but not identical status sets
-// (agent cards never show "interrupted"), so this covers the union of both
+// shared status label/icon/color lookup, used by both the message thread and the
+// history timeline - the two use overlapping but not identical status sets, so
+// this covers the union of both
 
-export type DisplayStatus = 'idle' | 'running' | 'done' | 'error' | 'interrupted'
+export type DisplayStatus = 'idle' | 'running' | 'done' | 'error' | 'interrupted' | 'max_turns_reached'
 
 export const STATUS_LABELS: Record<DisplayStatus, string> = {
   idle: 'Idle',
@@ -10,6 +10,7 @@ export const STATUS_LABELS: Record<DisplayStatus, string> = {
   done: 'Done',
   error: 'Error',
   interrupted: 'Interrupted',
+  max_turns_reached: 'Stopped (turn limit)',
 }
 
 export const STATUS_ICONS: Record<DisplayStatus, string> = {
@@ -18,6 +19,7 @@ export const STATUS_ICONS: Record<DisplayStatus, string> = {
   done: '●',
   error: '✕',
   interrupted: '!',
+  max_turns_reached: '◼',
 }
 
 export function getStatusColorVar(status: DisplayStatus): string {
@@ -30,7 +32,7 @@ export function getStatusColorVar(status: DisplayStatus): string {
   if (status === 'done') {
     return 'var(--status-done)'
   }
-  if (status === 'interrupted') {
+  if (status === 'interrupted' || status === 'max_turns_reached') {
     return 'var(--status-interrupted)'
   }
   return 'var(--status-error)'

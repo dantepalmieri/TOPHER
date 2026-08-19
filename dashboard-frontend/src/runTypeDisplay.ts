@@ -1,20 +1,19 @@
-// run_type display labels, shared by HistoryTimeline's badge and AgentStatusBoard's
-// non-team-pipeline indicator, now that runs can come from more than just the
-// 5-agent team (second_brain/dashboard/run_store.py's TEAM_PIPELINE_RUN_TYPE /
+// run_type display labels, shared by HistoryTimeline's badge and MessageThread's
+// non-team-conversation indicator, now that runs can come from more than just the
+// 5-agent team (second_brain/dashboard/run_store.py's TEAM_CONVERSATION_RUN_TYPE /
 // SOLO_RESEARCH_RUN_TYPE)
 
 export const RUN_TYPE_LABELS: Record<string, string> = {
-  team_pipeline: 'Team Pipeline',
+  team_conversation: 'Team Conversation',
   solo_research: 'Research',
 }
 
-// the only run_type that goes through all 5 agents - the one the 5-card
-// AgentStatusBoard applies to; everything else gets NonTeamRunIndicator's single
-// line instead
-export const FIVE_STAGE_RUN_TYPES = new Set(['team_pipeline'])
+// the only run_type with a live message thread to show - everything else gets
+// NonTeamRunIndicator's single line instead
+export const TEAM_CONVERSATION_RUN_TYPES = new Set(['team_conversation'])
 
-// only set for run_types with no 5-agent board to show progress on - shown in place
-// of the run_type label while that run is still in flight
+// only set for run_types with no message thread to show progress on - shown in
+// place of the run_type label while that run is still in flight
 export const RUN_TYPE_IN_PROGRESS_TEXT: Record<string, string> = {
   solo_research: 'Research is investigating…',
 }

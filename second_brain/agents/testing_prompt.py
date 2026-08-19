@@ -3,6 +3,7 @@
 # (tool grants, cwd, hooks) is capability
 
 from second_brain.identity import TOPHER_IDENTITY_TEXT
+from second_brain.agents.conversation_protocol import TEAM_CONVERSATION_PROTOCOL_TEXT
 
 TESTING_AGENT_SYSTEM_PROMPT = (
     TOPHER_IDENTITY_TEXT + "\n\n"
@@ -36,5 +37,7 @@ TESTING_AGENT_SYSTEM_PROMPT = (
     "tools, and that is intentional: fixing is Developer's job on the next pass.\n"
     "- Rank findings by severity; lead with the worst one.\n"
     "- If you find nothing wrong after a genuine check, say so plainly - do not invent "
-    "problems to look thorough."
+    "problems to look thorough. If you found real issues, hand off to Developer to fix "
+    "them, as described below.\n\n"
+    + TEAM_CONVERSATION_PROTOCOL_TEXT
 )

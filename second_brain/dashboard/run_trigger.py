@@ -1,67 +1,47 @@
-# the shared "start a run, persist its lifecycle, infer the in-flight agent on
-# failure" logic, previously living only in team_cli.py
-# (_run_full_pipeline_with_persistence, _infer_in_flight_agent) - refactored here so
-# team_cli.py and the dashboard's POST /api/trigger endpoint call one implementation
-# instead of duplicating it.
+# the shared "start a run, persist its lifecycle" logic, previously living only in
+# team_cli.py - refactored here so team_cli.py and the dashboard's POST /api/trigger
+# endpoint call one implementation instead of duplicating it.
 
 import uuid
-from second_brain.orchestrator import (
-    run_full_team_pipeline,
-    handle_research_request,
-    ARCHITECT_STAGE_NAME,
-    RESEARCH_STAGE_NAME,
-    DEVELOPER_STAGE_NAME,
-    TESTING_STAGE_NAME,
-    ANALYTICS_STAGE_NAME
-)
+from second_brain.orchestrator import run_team_conversation, handle_research_request, RESEARCH_STAGE_NAME
 from second_brain.types import PipelineStageResult
 from second_brain.dashboard import run_store
 
-TEAM_PIPELINE_MODE = "team_pipeline"
+TEAM_CONVERSATION_MODE = "team_conversation"
 RESEARCH_MODE = "research"
 
-VALID_TRIGGER_MODES = {TEAM_PIPELINE_MODE, RESEARCH_MODE}
+VALID_TRIGGER_MODES = {TEAM_CONVERSATION_MODE, RESEARCH_MODE}
 
 UNKNOWN_MODE_ERROR_TEMPLATE = "Unknown trigger mode '{mode}' - must be one of: {valid_modes}"
 
 _RUN_TYPE_BY_MODE = {
-    TEAM_PIPELINE_MODE: run_store.TEAM_PIPELINE_RUN_TYPE,
+    TEAM_CONVERSATION_MODE: run_store.TEAM_CONVERSATION_RUN_TYPE,
     RESEARCH_MODE: run_store.SOLO_RESEARCH_RUN_TYPE
 }
 
-PIPELINE_STAGE_ORDER = [
-    ARCHITECT_STAGE_NAME, RESEARCH_STAGE_NAME, DEVELOPER_STAGE_NAME, TESTING_STAGE_NAME, ANALYTICS_STAGE_NAME
-]
 
-
-def infer_in_flight_agent(completed_stage_names):
-    # the fixed pipeline order plus how many stages finished before a failure
-    # unambiguously identifies which agent was running when it happened
-    completed_count = len(completed_stage_names)
-
-    if completed_count < len(PIPELINE_STAGE_ORDER):
-        return PIPELINE_STAGE_ORDER[completed_count]
-
-    return ANALYTICS_STAGE_NAME
-
-
-def _run_team_pipeline(run_id, goal, on_stage_complete):
-    # runs the full 5-agent pipeline, persisting each stage as it completes
-    completed_stage_names = []
-
-    def _persist_and_forward(stage_result):
-        run_store.record_stage_result(run_id, stage_result)
-        completed_stage_names.append(stage_result.agent_name)
-        if on_stage_complete is not None:
-            on_stage_complete(stage_result)
+def _run_team_conversation(run_id, goal, on_message):
+    # runs the team's bounded conversation loop, persisting each message as it's
+    # posted. finishes as RUN_STATUS_DONE if an agent said DONE, or
+    # RUN_STATUS_MAX_TURNS if the turn cap was hit without that ever happening -
+    # both are a completed run, neither is an error
+    def _persist_and_forward(message):
+        run_store.record_message(
+            run_id, message.turn_number, message.sender_agent_name,
+            message.recipient_agent_name, message.content, message.is_done_signal
+        )
+        if on_message is not None:
+            on_message(message)
 
     try:
-        run_full_team_pipeline(goal, on_stage_complete=_persist_and_forward)
-        run_store.mark_run_finished(run_id, run_store.RUN_STATUS_DONE)
-    except (Exception, KeyboardInterrupt) as pipeline_error:
-        in_flight_agent = infer_in_flight_agent(completed_stage_names)
+        _, reached_done = run_team_conversation(goal, on_message=_persist_and_forward)
+        if reached_done is True:
+            run_store.mark_run_finished(run_id, run_store.RUN_STATUS_DONE)
+        else:
+            run_store.mark_run_finished(run_id, run_store.RUN_STATUS_MAX_TURNS)
+    except (Exception, KeyboardInterrupt) as conversation_error:
         run_store.mark_run_finished(run_id, run_store.RUN_STATUS_ERROR)
-        raise RuntimeError(in_flight_agent + " failed: " + str(pipeline_error)) from pipeline_error
+        raise conversation_error
 
 
 def _run_research(run_id, goal, on_stage_complete):
@@ -97,15 +77,17 @@ def create_pending_run(goal, mode):
 
 def execute_run(run_id, goal, mode, on_stage_complete=None):
     # runs the actual agent work for an already-created run row, dispatching to the
-    # right pipeline shape for the given mode. synchronous and blocking - callers
-    # already on an event loop must wrap this in asyncio.to_thread themselves, the
-    # same pattern already proven for this project's sqlite polling. re-raises on
-    # failure after persisting the error status, so a caller can still report what
-    # happened
+    # right shape for the given mode. synchronous and blocking - callers already on
+    # an event loop must wrap this in asyncio.to_thread themselves, the same pattern
+    # already proven for this project's sqlite polling. re-raises on failure after
+    # persisting the error status, so a caller can still report what happened.
+    # on_stage_complete doubles as the team-conversation on_message callback - both
+    # shapes carry the same thing callers actually want: "something new happened,
+    # here it is"
     _require_valid_mode(mode)
 
-    if mode == TEAM_PIPELINE_MODE:
-        _run_team_pipeline(run_id, goal, on_stage_complete)
+    if mode == TEAM_CONVERSATION_MODE:
+        _run_team_conversation(run_id, goal, on_stage_complete)
     else:
         _run_research(run_id, goal, on_stage_complete)
 

@@ -6,9 +6,9 @@ interface NonTeamRunIndicatorProps {
   currentRun: RunDetail
 }
 
-// the 5-agent board only makes sense for a team_pipeline run - every other run_type
-// (solo_research, ...) is a single stage, so it gets one simple line instead of
-// five cards that would sit idle forever
+// the live message thread only makes sense for a team_conversation run - every
+// other run_type (solo_research, ...) is a single stage, so it gets one simple
+// line instead
 export function NonTeamRunIndicator({ currentRun }: NonTeamRunIndicatorProps) {
   const statusColorVar = getStatusColorVar(currentRun.status)
 

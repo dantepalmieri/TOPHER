@@ -30,6 +30,16 @@ DEVELOPER_AGENT_MODEL_NAME = "sonnet"
 TESTING_AGENT_MODEL_NAME = "sonnet"
 ANALYTICS_AGENT_MODEL_NAME = "sonnet"
 
+# the team talks as a real, bounded conversation rather than a fixed 5-step relay:
+# each agent's reply can hand off to a specific teammate or declare the goal DONE
+# (see conversation_protocol.py). this cap guarantees the loop always terminates
+# even if nobody ever says DONE. each turn is a full claude code cli subprocess
+# call against the user's Pro/Max subscription usage-limit window, not metered
+# per-token billing - the old fixed pipeline made exactly 5 such calls per goal,
+# this can make up to double that in the worst case, so this number is a real
+# cost/usage tradeoff, not an arbitrary safety margin
+MAXIMUM_CONVERSATION_TURNS = 10
+
 # phase 5: the dashboard - a localhost-only web ui that watches the team work live.
 # the cli/agents and the dashboard server never talk to each other directly; both
 # sides read/write this sqlite database instead, so the assistant works identically

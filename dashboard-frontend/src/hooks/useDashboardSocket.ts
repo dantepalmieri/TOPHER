@@ -38,6 +38,18 @@ function copyStagesWithOneAppended(
   return updatedStages
 }
 
+function copyMessagesWithOneAppended(
+  existingMessages: RunDetail['messages'],
+  newMessage: RunDetail['messages'][number],
+): RunDetail['messages'] {
+  const updatedMessages: RunDetail['messages'] = []
+  for (let messageIndex = 0; messageIndex < existingMessages.length; messageIndex++) {
+    updatedMessages.push(existingMessages[messageIndex])
+  }
+  updatedMessages.push(newMessage)
+  return updatedMessages
+}
+
 function copyRunsWithOnePrepended(existingRuns: RunSummary[], newRun: RunSummary): RunSummary[] {
   const updatedRuns: RunSummary[] = [newRun]
   for (let runIndex = 0; runIndex < existingRuns.length; runIndex++) {
@@ -98,7 +110,7 @@ export function useDashboardSocket(): DashboardState {
 
       if (message.type === 'run_started') {
         const newRunSummary = buildRunSummaryFromStartedMessage(message)
-        setCurrentRun({ ...newRunSummary, stages: [] })
+        setCurrentRun({ ...newRunSummary, stages: [], messages: [] })
         setPastRuns((previousRuns) => copyRunsWithOnePrepended(previousRuns, newRunSummary))
         return
       }
@@ -110,6 +122,26 @@ export function useDashboardSocket(): DashboardState {
             return previousRun
           }
           return { ...previousRun, stages: copyStagesWithOneAppended(previousRun.stages, newStage) }
+        })
+        return
+      }
+
+      if (message.type === 'message_added') {
+        const newMessage = {
+          message_id: Date.now(),
+          run_id: message.run_id,
+          turn_number: message.turn_number,
+          sender_agent_name: message.sender_agent_name,
+          recipient_agent_name: message.recipient_agent_name,
+          content: message.content,
+          is_done_signal: message.is_done_signal,
+          created_at: message.created_at,
+        }
+        setCurrentRun((previousRun) => {
+          if (previousRun === null || previousRun.run_id !== message.run_id) {
+            return previousRun
+          }
+          return { ...previousRun, messages: copyMessagesWithOneAppended(previousRun.messages, newMessage) }
         })
         return
       }

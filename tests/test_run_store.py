@@ -64,3 +64,25 @@ def test_get_current_run_snapshot_matches_most_recent_run():
     run_store.create_run("run-latest", "second")
     current_snapshot = run_store.get_current_run_snapshot()
     assert current_snapshot.run_id == "run-latest"
+
+
+def test_record_message_appends_in_turn_order():
+    run_store.create_run("run-4", "conversation goal", run_type=run_store.TEAM_CONVERSATION_RUN_TYPE)
+    run_store.record_message("run-4", 1, "Architect", "Research", "plan text", False)
+    run_store.record_message("run-4", 2, "Research", None, "DONE", True)
+
+    run_detail = run_store.get_run_detail("run-4")
+    assert len(run_detail.messages) == 2
+    assert run_detail.messages[0].sender_agent_name == "Architect"
+    assert run_detail.messages[0].recipient_agent_name == "Research"
+    assert run_detail.messages[0].is_done_signal is False
+    assert run_detail.messages[1].sender_agent_name == "Research"
+    assert run_detail.messages[1].recipient_agent_name is None
+    assert run_detail.messages[1].is_done_signal is True
+
+
+def test_mark_run_finished_accepts_max_turns_status():
+    run_store.create_run("run-5", "goal that never says done")
+    run_store.mark_run_finished("run-5", run_store.RUN_STATUS_MAX_TURNS)
+    run_detail = run_store.get_run_detail("run-5")
+    assert run_detail.status == run_store.RUN_STATUS_MAX_TURNS

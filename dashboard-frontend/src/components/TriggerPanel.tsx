@@ -9,9 +9,9 @@ interface ModeOption {
 
 const MODE_OPTIONS: ModeOption[] = [
   {
-    value: 'team_pipeline',
-    label: 'Team Pipeline',
-    description: 'Architect → Research → Developer → Testing → Analytics, sandboxed to workspace/.',
+    value: 'team_conversation',
+    label: 'Team Conversation',
+    description: 'The whole team, starting with Architect, handing off to whoever should act next. Sandboxed to workspace/.',
   },
   {
     value: 'research',
@@ -28,7 +28,7 @@ type SubmitStatus = typeof IDLE_STATUS | typeof SUBMITTING_STATUS | typeof ERROR
 
 // lets the dashboard do more than watch - triggers a run in either mode the
 // backend's run_trigger.py supports. the started run then shows up through the
-// existing websocket/AgentStatusBoard/HistoryTimeline machinery with no special
+// existing websocket/MessageThread/HistoryTimeline machinery with no special
 // casing needed there, since it's just another row in run_store
 export function TriggerPanel() {
   const [goal, setGoal] = useState('')

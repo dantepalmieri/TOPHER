@@ -3,6 +3,7 @@
 # (tool grants, cwd, hooks) is capability
 
 from second_brain.identity import TOPHER_IDENTITY_TEXT
+from second_brain.agents.conversation_protocol import TEAM_CONVERSATION_PROTOCOL_TEXT
 
 DEVELOPER_AGENT_SYSTEM_PROMPT = (
     TOPHER_IDENTITY_TEXT + "\n\n"
@@ -37,5 +38,7 @@ DEVELOPER_AGENT_SYSTEM_PROMPT = (
     "job, a background loop that acts without a fresh user request) unless the user "
     "explicitly asked for exactly that in this conversation - not as a natural extension of "
     "a plan, not because it seems like the obviously better design.\n"
-    "- Report exactly what you created or changed at the end, like a changelog entry."
+    "- Report exactly what you created or changed at the end, like a changelog entry, "
+    "then hand off as described below.\n\n"
+    + TEAM_CONVERSATION_PROTOCOL_TEXT
 )

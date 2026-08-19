@@ -6,7 +6,7 @@
 import sqlite3
 import datetime
 from second_brain.config import DASHBOARD_DATABASE_PATH, DASHBOARD_STALE_RUN_THRESHOLD_MINUTES
-from second_brain.types import PipelineStageResult, RunSummary, RunDetail
+from second_brain.types import PipelineStageResult, TeamMessage, RunSummary, RunDetail
 
 BUSY_TIMEOUT_MILLISECONDS = 5000
 
@@ -14,8 +14,13 @@ RUN_STATUS_RUNNING = "running"
 RUN_STATUS_DONE = "done"
 RUN_STATUS_ERROR = "error"
 RUN_STATUS_INTERRUPTED = "interrupted"
+# a team_conversation run that hit MAXIMUM_CONVERSATION_TURNS without any agent
+# emitting the DONE signal - distinct from both RUN_STATUS_DONE (a clean, agent-
+# declared finish) and RUN_STATUS_ERROR (a crash): real progress was made, it just
+# didn't self-terminate
+RUN_STATUS_MAX_TURNS = "max_turns_reached"
 
-TEAM_PIPELINE_RUN_TYPE = "team_pipeline"
+TEAM_CONVERSATION_RUN_TYPE = "team_conversation"
 SOLO_RESEARCH_RUN_TYPE = "solo_research"
 
 
@@ -53,6 +58,17 @@ def initialize_database():
         "agent_name TEXT NOT NULL, "
         "output_text TEXT NOT NULL, "
         "completed_at TEXT NOT NULL)"
+    )
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS messages ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "run_id TEXT NOT NULL, "
+        "turn_number INTEGER NOT NULL, "
+        "sender_agent_name TEXT NOT NULL, "
+        "recipient_agent_name TEXT, "
+        "content TEXT NOT NULL, "
+        "is_done_signal INTEGER NOT NULL, "
+        "created_at TEXT NOT NULL)"
     )
     connection.commit()
     connection.close()
@@ -93,11 +109,38 @@ def _get_stages_for_run(connection, run_id):
     return stages
 
 
+def _get_messages_for_run(connection, run_id):
+    # every message posted so far in one run's team conversation, in turn order
+    message_rows = connection.execute(
+        "SELECT id, run_id, turn_number, sender_agent_name, recipient_agent_name, content, "
+        "is_done_signal, created_at FROM messages WHERE run_id = ? ORDER BY id ASC",
+        (run_id,)
+    ).fetchall()
+
+    messages = []
+    for row_index in range(len(message_rows)):
+        current_row = message_rows[row_index]
+        messages.append(TeamMessage(
+            message_id=current_row["id"],
+            run_id=current_row["run_id"],
+            turn_number=current_row["turn_number"],
+            sender_agent_name=current_row["sender_agent_name"],
+            recipient_agent_name=current_row["recipient_agent_name"],
+            content=current_row["content"],
+            is_done_signal=bool(current_row["is_done_signal"]),
+            created_at=current_row["created_at"]
+        ))
+
+    return messages
+
+
 def _resolve_run_status(connection, run_row):
     # a running run whose most recent activity has gone stale displays as
     # "interrupted" rather than a live-looking run forever - a read-time heuristic,
     # not a change to the stored status, since nothing can reliably run cleanup when
-    # a cli process is killed
+    # a cli process is killed. most recent activity is the latest of either a stage
+    # or a message, since a run only ever populates one of those two tables but this
+    # check does not need to know which
     if run_row["status"] != RUN_STATUS_RUNNING:
         return run_row["status"]
 
@@ -105,11 +148,16 @@ def _resolve_run_status(connection, run_row):
         "SELECT completed_at FROM stages WHERE run_id = ? ORDER BY id DESC LIMIT 1",
         (run_row["run_id"],)
     ).fetchone()
+    latest_message_row = connection.execute(
+        "SELECT created_at FROM messages WHERE run_id = ? ORDER BY id DESC LIMIT 1",
+        (run_row["run_id"],)
+    ).fetchone()
 
-    if latest_stage_row is None:
-        most_recent_activity = run_row["started_at"]
-    else:
+    most_recent_activity = run_row["started_at"]
+    if latest_stage_row is not None and latest_stage_row["completed_at"] > most_recent_activity:
         most_recent_activity = latest_stage_row["completed_at"]
+    if latest_message_row is not None and latest_message_row["created_at"] > most_recent_activity:
+        most_recent_activity = latest_message_row["created_at"]
 
     if _is_timestamp_stale(most_recent_activity):
         return RUN_STATUS_INTERRUPTED
@@ -117,7 +165,7 @@ def _resolve_run_status(connection, run_row):
     return RUN_STATUS_RUNNING
 
 
-def create_run(run_id, goal, run_type=TEAM_PIPELINE_RUN_TYPE):
+def create_run(run_id, goal, run_type=TEAM_CONVERSATION_RUN_TYPE):
     # inserts a new run row with status "running"
     connection = _open_connection()
     connection.execute(
@@ -139,8 +187,20 @@ def record_stage_result(run_id, stage_result):
     connection.close()
 
 
+def record_message(run_id, turn_number, sender_agent_name, recipient_agent_name, content, is_done_signal):
+    # inserts one team-conversation message
+    connection = _open_connection()
+    connection.execute(
+        "INSERT INTO messages (run_id, turn_number, sender_agent_name, recipient_agent_name, content, "
+        "is_done_signal, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (run_id, turn_number, sender_agent_name, recipient_agent_name, content, int(is_done_signal), _current_timestamp())
+    )
+    connection.commit()
+    connection.close()
+
+
 def mark_run_finished(run_id, status):
-    # marks a run as finished (done or error) with a finish timestamp
+    # marks a run as finished (done, error, or max_turns_reached) with a finish timestamp
     connection = _open_connection()
     connection.execute(
         "UPDATE runs SET status = ?, finished_at = ? WHERE run_id = ?",
@@ -175,8 +235,8 @@ def list_runs(limit):
 
 
 def get_run_detail(run_id):
-    # one run's full detail, including every stage's complete output - returns
-    # None if no run with this id exists
+    # one run's full detail, including every stage's/message's complete output -
+    # returns None if no run with this id exists
     connection = _open_connection()
     run_row = connection.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
 
@@ -191,7 +251,8 @@ def get_run_detail(run_id):
         started_at=run_row["started_at"],
         finished_at=run_row["finished_at"],
         status=_resolve_run_status(connection, run_row),
-        stages=_get_stages_for_run(connection, run_row["run_id"])
+        stages=_get_stages_for_run(connection, run_row["run_id"]),
+        messages=_get_messages_for_run(connection, run_row["run_id"])
     )
 
     connection.close()
@@ -201,8 +262,8 @@ def get_run_detail(run_id):
 def get_current_run_snapshot():
     # the single most recently started run, full detail (whether it's still running,
     # finished, or gone stale) - used to give a freshly connected browser immediate
-    # state, and by the dashboard server's poll loop to detect new stages/status
-    # changes without needing per-row change tracking on the runs table
+    # state, and by the dashboard server's poll loop to detect new stages/messages/
+    # status changes without needing per-row change tracking on the runs table
     connection = _open_connection()
     run_row = connection.execute(
         "SELECT * FROM runs ORDER BY started_at DESC LIMIT 1"
@@ -219,7 +280,8 @@ def get_current_run_snapshot():
         started_at=run_row["started_at"],
         finished_at=run_row["finished_at"],
         status=_resolve_run_status(connection, run_row),
-        stages=_get_stages_for_run(connection, run_row["run_id"])
+        stages=_get_stages_for_run(connection, run_row["run_id"]),
+        messages=_get_messages_for_run(connection, run_row["run_id"])
     )
 
     connection.close()

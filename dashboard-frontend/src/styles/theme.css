@@ -133,7 +133,7 @@ h1, h2, h3, p, span, div {
   box-shadow: 0 0 8px -1px var(--status-error);
 }
 
-/* main grid: trigger panel and status board are the primary focus (each spans
+/* main grid: trigger panel and message thread are the primary focus (each spans
    full width), history sits below */
 
 .app-grid {
@@ -142,16 +142,6 @@ h1, h2, h3, p, span, div {
   grid-template-columns: 1fr;
   gap: 16px;
   padding: 16px 24px 24px;
-}
-
-/* auto-fit + minmax lets the browser decide how many cards fit per row from
-   the available width (5 across on a wide window, 2x2x1 at moderate widths,
-   1 per row once it's narrow) instead of a hard-coded column count - the one
-   thing that makes this actually responsive rather than a fixed breakpoint */
-.agent-status-board-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
 }
 
 /* trigger panel */
@@ -220,49 +210,64 @@ h1, h2, h3, p, span, div {
   margin: 0;
 }
 
-/* agent status cards */
+/* message thread - the live team conversation */
 
-.agent-card {
-  /* grid items default to min-width: auto, which sizes to the unwrapped
-     snippet text below (white-space: nowrap) instead of the 1fr track -
-     that's what was pushing the whole row wider than the window. min-width: 0
-     lets the card actually shrink to its track's width so the snippet's own
-     text-overflow: ellipsis can do its job */
-  min-width: 0;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+.message-thread {
+  padding: 16px;
+  max-height: 480px;
+  overflow-y: auto;
 }
 
-.agent-card-header {
+.message-thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.message-bubble {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0 6px 6px 0;
+}
+
+.message-bubble-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.agent-card-name {
+.message-bubble-sender {
   font-weight: 600;
 }
 
-.agent-card-status {
+.message-bubble-badge {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  color: var(--ink-muted);
+}
+
+.message-bubble-badge-done {
+  color: var(--status-done);
+  border-color: var(--status-done);
+}
+
+.message-bubble-content {
   font-size: 13px;
+  line-height: 150%;
+  margin: 0;
+  white-space: pre-wrap;
 }
 
-.agent-card-role {
-  font-size: 12px;
-}
-
-.agent-card-snippet {
-  font-size: 13px;
-  line-height: 140%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* non-team-pipeline run indicator - stands in for the 5-card grid when the
-   current run isn't a team_pipeline run */
+/* non-team-conversation run indicator - stands in for the message thread when the
+   current run isn't a team_conversation run */
 
 .non-team-run-indicator {
   padding: 14px;
