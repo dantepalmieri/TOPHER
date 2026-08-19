@@ -30,21 +30,21 @@ def handle_research_request(user_request):
     return research_findings
 
 
-def handle_developer_request(user_request, self_improvement_mode=False):
+def handle_developer_request(user_request):
     # routes a request to the developer agent and returns its build report
-    developer_report = ask_developer(user_request, self_improvement_mode)
+    developer_report = ask_developer(user_request)
     return developer_report
 
 
-def handle_testing_request(user_request, self_improvement_mode=False):
+def handle_testing_request(user_request):
     # routes a request to the testing agent and returns its review
-    testing_report = ask_testing_agent(user_request, self_improvement_mode)
+    testing_report = ask_testing_agent(user_request)
     return testing_report
 
 
-def handle_analytics_request(user_request, self_improvement_mode=False):
+def handle_analytics_request(user_request):
     # routes a request to the analytics agent and returns its analysis
-    analytics_report = ask_analytics_agent(user_request, self_improvement_mode)
+    analytics_report = ask_analytics_agent(user_request)
     return analytics_report
 
 
@@ -60,16 +60,11 @@ def _build_pipeline_context(goal, completed_stages):
     return context_text
 
 
-def run_full_team_pipeline(goal, on_stage_complete=None, self_improvement_mode=False):
+def run_full_team_pipeline(goal, on_stage_complete=None):
     # runs a goal through the whole team in order, threading each completed stage into
     # the next stage's input as context. on_stage_complete, if given, is called with
     # each PipelineStageResult right after that stage finishes - callers that want to
     # show progress (e.g. a cli) pass a callback rather than this function doing i/o itself.
-    # self_improvement_mode, if true, points developer/testing/analytics at the real
-    # project root under self_modification_guard.py's denylist instead of the workspace/
-    # sandbox - architect and research are unaffected (architect always uses the
-    # self-modification guard's read-side checks regardless of mode; research has no
-    # filesystem tools at all)
     completed_stages = []
 
     architect_plan = handle_architect_request(goal)
@@ -86,21 +81,21 @@ def run_full_team_pipeline(goal, on_stage_complete=None, self_improvement_mode=F
         on_stage_complete(research_stage)
 
     developer_context = _build_pipeline_context(goal, completed_stages)
-    developer_report = handle_developer_request(developer_context, self_improvement_mode)
+    developer_report = handle_developer_request(developer_context)
     developer_stage = PipelineStageResult(agent_name=DEVELOPER_STAGE_NAME, output_text=developer_report)
     completed_stages.append(developer_stage)
     if on_stage_complete is not None:
         on_stage_complete(developer_stage)
 
     testing_context = _build_pipeline_context(goal, completed_stages)
-    testing_report = handle_testing_request(testing_context, self_improvement_mode)
+    testing_report = handle_testing_request(testing_context)
     testing_stage = PipelineStageResult(agent_name=TESTING_STAGE_NAME, output_text=testing_report)
     completed_stages.append(testing_stage)
     if on_stage_complete is not None:
         on_stage_complete(testing_stage)
 
     analytics_context = _build_pipeline_context(goal, completed_stages)
-    analytics_report = handle_analytics_request(analytics_context, self_improvement_mode)
+    analytics_report = handle_analytics_request(analytics_context)
     analytics_stage = PipelineStageResult(agent_name=ANALYTICS_STAGE_NAME, output_text=analytics_report)
     completed_stages.append(analytics_stage)
     if on_stage_complete is not None:

@@ -1,7 +1,6 @@
-# phase 6: split from research_agent.py so the team can improve its own
-# personality without ever touching what it's actually permitted to do - this file
-# is freely editable in self-improvement mode; research_agent.py (tool grants,
-# mcp servers) is not, since those decide capability, not voice
+# split from research_agent.py so the team's voice can be tuned separately from
+# what it's actually permitted to do - this file is personality; research_agent.py
+# (tool grants) is capability
 
 from second_brain.identity import TOPHER_IDENTITY_TEXT
 

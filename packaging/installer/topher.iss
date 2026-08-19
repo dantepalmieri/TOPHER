@@ -1,10 +1,8 @@
-; phase 7: windows installer script. builds TOPHER-Setup-<version>.exe from the
-; payload directory CI's assemble-payload job produces at packaging\payload\ -
-; that directory is a full-history git checkout (origin=dantepalmieri/TOPHER,
-; pinned to the release tag) with the built frontend, bundled venv, and frozen
-; launcher already placed inside it. running ISCC locally for a dry run first
-; requires populating packaging\payload\ by hand the same way (see
-; packaging\scripts\).
+; windows installer script. builds TOPHER-Setup-<version>.exe from the payload
+; directory CI's assemble-payload job produces at packaging\payload\ - the project
+; source with the built frontend, bundled venv, and frozen launcher already placed
+; inside it. running ISCC locally for a dry run first requires populating
+; packaging\payload\ by hand the same way (see packaging\scripts\).
 ;
 ; version is passed in via /DMyAppVersion=x.y.z (see stamp_version.py) so this
 ; file never needs hand-editing per release; it falls back to a dev placeholder
@@ -30,9 +28,8 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 DefaultDirName={localappdata}\Programs\TOPHER
 DefaultGroupName=TOPHER
-; per-user, no admin prompt ever - load-bearing for self-improvement mode,
-; which needs the install directory to stay fully writable and git-commit-able
-; with zero elevation friction
+; per-user, no admin prompt ever - a personal single-user local app has no reason
+; to demand elevation just to install
 PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
 OutputBaseFilename=TOPHER-Setup-{#MyAppVersion}
@@ -46,8 +43,9 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Name: "launchatstartup"; Description: "Launch TOPHER when Windows starts"; Flags: checkedonce
 
 [Files]
-; the whole assembled payload, .git included on purpose (no dotfile exclusion) -
-; self-improve mode needs a real, working git repo already pointed at origin
+; the whole assembled payload (assemble_payload.ps1 already excludes .git - the
+; installed app never writes to its own source, so it has no reason to be a
+; working git repo)
 Source: "..\payload\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
@@ -57,43 +55,3 @@ Name: "{userstartup}\TOPHER"; Filename: "{app}\{#MyAppExeName}"; Tasks: launchat
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch TOPHER now"; Flags: nowait postinstall skipifsilent
-
-[Code]
-function GitIsOnPath(): Boolean;
-var
-  ResultCode: Integer;
-begin
-  Result := Exec('cmd.exe', '/C where git', '', SW_HIDE, ewWaitUntilTerminated, ResultCode)
-    and (ResultCode = 0);
-end;
-
-function InitializeSetup(): Boolean;
-var
-  ExistingGitDirectory: String;
-  UserChoice: Integer;
-begin
-  Result := True;
-
-  // warns before overwriting an existing install's .git - self-improvement
-  // mode may have local commits or in-progress work that hasn't been pushed
-  // yet, and this installer has no merge logic, only a plain file copy
-  ExistingGitDirectory := ExpandConstant('{localappdata}\Programs\TOPHER\.git');
-  if DirExists(ExistingGitDirectory) then
-  begin
-    UserChoice := MsgBox(
-      'An existing TOPHER install was found. Installing will overwrite its files, ' +
-      'including local git history. If the self-improving team has made commits ' +
-      'that were not pushed yet, push them first.' + #13#10 + #13#10 +
-      'Continue anyway?',
-      mbConfirmation, MB_OKCANCEL);
-    if UserChoice = IDCANCEL then
-      Result := False;
-  end;
-
-  if Result and (not GitIsOnPath()) then
-    MsgBox(
-      'Git was not found on PATH. TOPHER itself will still work fully, but the ' +
-      'self-improving team needs git to commit its own changes. Install Git for ' +
-      'Windows from git-scm.com/download/win whenever you want that capability.',
-      mbInformation, MB_OK);
-end;

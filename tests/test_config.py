@@ -33,15 +33,6 @@ def test_venv_python_executable_path_matches_windows_venv_layout():
     assert config.VENV_PYTHON_EXECUTABLE_PATH == expected_path
 
 
-def test_self_modification_protected_paths_are_all_relative():
-    # self_modification_guard.py joins every entry onto PROJECT_ROOT_DIRECTORY - an
-    # absolute entry here would silently escape that join and break the denylist
-    protected_path_count = len(config.SELF_MODIFICATION_PROTECTED_PATHS)
-    for path_index in range(protected_path_count):
-        current_protected_path = config.SELF_MODIFICATION_PROTECTED_PATHS[path_index]
-        assert os.path.isabs(current_protected_path) is False
-
-
 def test_dashboard_server_host_defaults_to_localhost(monkeypatch):
     monkeypatch.delenv("DASHBOARD_SERVER_HOST", raising=False)
     import importlib

@@ -107,8 +107,8 @@ def _deny_result(reason):
 
 
 async def check_tool_stays_in_workspace(hook_input, tool_use_id, context):
-    # a claude agent sdk pretooluse hook - registered on developer/testing/analytics,
-    # the three agents with real write/edit/bash access to the shared sandbox.
+    # a claude agent sdk pretooluse hook - registered on every team agent (architect,
+    # developer, testing, analytics) that operates inside the shared sandbox.
     # returning {} allows the call; returning a deny hookSpecificOutput blocks it
     # before it ever executes
     tool_name = hook_input["tool_name"]

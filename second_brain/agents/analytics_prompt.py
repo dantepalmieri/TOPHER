@@ -1,7 +1,6 @@
-# phase 6: split from analytics_agent.py so the team can improve its own
-# personality without ever touching what it's actually permitted to do - this file
-# is freely editable in self-improvement mode; analytics_agent.py (tool grants,
-# cwd, hooks) is not, since those decide capability, not voice
+# split from analytics_agent.py so the team's voice can be tuned separately from
+# what it's actually permitted to do - this file is personality; analytics_agent.py
+# (tool grants, cwd, hooks) is capability
 
 from second_brain.identity import TOPHER_IDENTITY_TEXT
 

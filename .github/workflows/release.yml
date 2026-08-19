@@ -61,12 +61,7 @@ jobs:
     runs-on: windows-latest
     needs: verify-version
     steps:
-      # fetch-depth 0 is deliberate - this checkout's .git becomes the shipped
-      # project's .git, so self-improvement mode has real history and a
-      # working origin remote from the moment it's installed
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:

@@ -1,14 +1,8 @@
-# phase 6: the shared "start a run, persist its lifecycle, infer the in-flight agent
-# on failure" logic, previously living only in team_cli.py
+# the shared "start a run, persist its lifecycle, infer the in-flight agent on
+# failure" logic, previously living only in team_cli.py
 # (_run_full_pipeline_with_persistence, _infer_in_flight_agent) - refactored here so
 # team_cli.py and the dashboard's POST /api/trigger endpoint call one implementation
 # instead of duplicating it.
-#
-# protected (see config.py's SELF_MODIFICATION_PROTECTED_PATHS): this is exactly the
-# kind of mode-dispatch logic self_modification_guard.py's design leans on staying
-# untouchable - it is what decides whether a run gets the sandboxed workspace/
-# boundary or the real project root, so an agent editing this file could quietly make
-# every run resolve to the unrestricted mode without ever touching a guard's path checks
 
 import uuid
 from second_brain.orchestrator import (
@@ -24,16 +18,14 @@ from second_brain.types import PipelineStageResult
 from second_brain.dashboard import run_store
 
 TEAM_PIPELINE_MODE = "team_pipeline"
-SELF_IMPROVE_MODE = "self_improve"
 RESEARCH_MODE = "research"
 
-VALID_TRIGGER_MODES = {TEAM_PIPELINE_MODE, SELF_IMPROVE_MODE, RESEARCH_MODE}
+VALID_TRIGGER_MODES = {TEAM_PIPELINE_MODE, RESEARCH_MODE}
 
 UNKNOWN_MODE_ERROR_TEMPLATE = "Unknown trigger mode '{mode}' - must be one of: {valid_modes}"
 
 _RUN_TYPE_BY_MODE = {
     TEAM_PIPELINE_MODE: run_store.TEAM_PIPELINE_RUN_TYPE,
-    SELF_IMPROVE_MODE: run_store.SELF_IMPROVE_RUN_TYPE,
     RESEARCH_MODE: run_store.SOLO_RESEARCH_RUN_TYPE
 }
 
@@ -53,10 +45,8 @@ def infer_in_flight_agent(completed_stage_names):
     return ANALYTICS_STAGE_NAME
 
 
-def _run_team_pipeline(run_id, goal, self_improvement_mode, on_stage_complete):
-    # runs the full 5-agent pipeline, persisting each stage as it completes - shared
-    # by both team_pipeline and self_improve modes, which differ only in the boundary
-    # orchestrator.py points developer/testing/analytics at
+def _run_team_pipeline(run_id, goal, on_stage_complete):
+    # runs the full 5-agent pipeline, persisting each stage as it completes
     completed_stage_names = []
 
     def _persist_and_forward(stage_result):
@@ -66,7 +56,7 @@ def _run_team_pipeline(run_id, goal, self_improvement_mode, on_stage_complete):
             on_stage_complete(stage_result)
 
     try:
-        run_full_team_pipeline(goal, on_stage_complete=_persist_and_forward, self_improvement_mode=self_improvement_mode)
+        run_full_team_pipeline(goal, on_stage_complete=_persist_and_forward)
         run_store.mark_run_finished(run_id, run_store.RUN_STATUS_DONE)
     except (Exception, KeyboardInterrupt) as pipeline_error:
         in_flight_agent = infer_in_flight_agent(completed_stage_names)
@@ -115,9 +105,7 @@ def execute_run(run_id, goal, mode, on_stage_complete=None):
     _require_valid_mode(mode)
 
     if mode == TEAM_PIPELINE_MODE:
-        _run_team_pipeline(run_id, goal, False, on_stage_complete)
-    elif mode == SELF_IMPROVE_MODE:
-        _run_team_pipeline(run_id, goal, True, on_stage_complete)
+        _run_team_pipeline(run_id, goal, on_stage_complete)
     else:
         _run_research(run_id, goal, on_stage_complete)
 

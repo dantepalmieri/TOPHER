@@ -1,7 +1,7 @@
-# phase 7: combines the project checkout (source + .git, already containing the
-# bundled venv/ and dashboard-frontend/dist/ built by build_venv.ps1 and
-# `npm run build`) with the frozen launcher exe into packaging\payload\, the
-# exact directory topher.iss copies into the installer as-is
+# combines the project checkout (source, already containing the bundled venv/ and
+# dashboard-frontend/dist/ built by build_venv.ps1 and `npm run build`) with the
+# frozen launcher exe into packaging\payload\, the exact directory topher.iss
+# copies into the installer as-is
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Resolve-Path "$PSScriptRoot\..\.."
@@ -29,20 +29,19 @@ $TopLevelPackagingDirectory = Join-Path $ProjectRoot "packaging"
 
 # robocopy exit codes 0-7 all mean success (see robocopy's own documentation of
 # its exit code bitmask); only 8+ is a real failure
+#
+# .git is excluded outright - nothing in the installed app can write to its own
+# source (self-improvement mode was removed), so there is no reason for the
+# installed copy to be a working git repo at all. smaller, faster-to-build payload,
+# and one less category of installer fragility (hidden-attribute/wildcard-scan
+# handling this project has been bitten by before)
 robocopy $ProjectRoot $PayloadDir /E `
-    /XD "node_modules" "__pycache__" ".pytest_cache" ".ruff_cache" $TopLevelPackagingDirectory ".claude" ".github" `
-    /XF "*.pyc" "requirements-dev.txt" ".env" ".mcp.json" "dashboard.db*" "conversation_history.json" `
+    /XD "node_modules" "__pycache__" ".pytest_cache" ".ruff_cache" $TopLevelPackagingDirectory ".claude" ".github" ".git" `
+    /XF "*.pyc" "requirements-dev.txt" ".env" "dashboard.db*" `
     | Out-Null
 if ($LASTEXITCODE -ge 8) {
     throw "robocopy failed while assembling the payload (exit code $LASTEXITCODE)"
 }
-
-# git for windows marks .git with the hidden attribute automatically, and
-# inno setup's default [Files] wildcard scan silently skips hidden files and
-# directories - found by actually installing a built installer and finding no
-# .git at all in the installed copy, which would have quietly broken
-# self-improvement mode's ability to commit entirely
-attrib -h -s "$PayloadDir\.git" /s /d
 
 $LauncherExePath = Join-Path $ProjectRoot "packaging\dist\TopherLauncher.exe"
 if (-not (Test-Path $LauncherExePath)) {
