@@ -1,6 +1,18 @@
 # secrets and machine-specific local paths
 .env
 
+# leftover local artifacts from removed features - nothing in this project
+# produces these anymore, but keep them ignored defensively so a leftover
+# local file (or a personal one, like a real conversation history) never gets
+# swept into a commit by accident
+.mcp.json
+conversation_history.json
+
+# claude code worktrees live inside the repo directory - without this, a
+# nested worktree's own .git gets picked up as a broken gitlink by a broad
+# `git add`/commit at the parent repo level
+.claude/worktrees/
+
 # dashboard run history (sqlite, wal mode - includes -wal/-shm sidecar files)
 dashboard.db*
 

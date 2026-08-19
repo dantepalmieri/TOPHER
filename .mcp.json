@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "second-brain-vault": {
-      "command": "C:\\Users\\palmi\\obsidian-claude\\venv\\Scripts\\python.exe",
-      "args": ["C:\\Users\\palmi\\obsidian-claude\\run_mcp_server.py"]
-    }
-  }
-}

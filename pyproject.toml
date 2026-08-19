@@ -6,6 +6,13 @@ requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# without this, plain `pytest` (not `python -m pytest`) never adds the project
+# root to sys.path on its own - there's no installed package, no conftest.py,
+# and tests/ has no __init__.py for pytest's own rootdir-insertion to reach the
+# repo root instead. found via a real ci failure (ModuleNotFoundError:
+# second_brain) that `python -m pytest` locally never reproduced, since -m
+# itself adds cwd to sys.path and silently masked this
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 125
