@@ -1,168 +1,125 @@
 # TOPHER
 
 **T.O.P.H.E.R.** — Totally Open Personal Home Environment Robot. A personal AI
-assistant system, built in phases: it starts as a simple Obsidian vault search tool
-and grows into a multi-agent system with a live, interactive dashboard. As of
-Phase 6, it can search and write to your vault, remember conversations short- and
-long-term, run as an MCP server for Claude Desktop/Code, hand a goal to a
-five-agent team (Architect, Research, Developer, Testing, Analytics) that plans,
-investigates, builds, reviews, and reports on it end to end, work on its own real
-codebase directly in a self-improvement mode that can't touch its own safety
-wiring, and run as a persistent "mission control" web dashboard — reachable
-remotely over a private network — that can both watch every kind of run Topher
-does and trigger new ones itself.
+assistant that searches and writes to your Obsidian vault, remembers
+conversations, hands off goals to a five-agent team (Architect, Research,
+Developer, Testing, Analytics) that plans, investigates, builds, reviews, and
+reports on them end to end, and can work on its own codebase directly in a
+self-improvement mode that can't touch its own safety wiring. A persistent
+dashboard lets you watch and trigger any of this from a browser, including
+remotely over your own private network.
 
-### About the name
+Topher (or "Toph") is the assistant's identity across every part of the
+project — the core vault assistant and every team agent operate under that
+one name, each in their own distinct voice, the same way JARVIS is one
+assistant across every system it runs.
 
-Topher (or "Toph") is the assistant's identity across every part of this project —
-the core vault assistant and every team agent operate under that one name, each in
-their own distinct voice, the same way JARVIS is one assistant across every system
-it runs. `second_brain/identity.py` holds the shared identity text every agent's
-system prompt is built from.
+## Features
 
-## Table of contents
+- Semantic search over your Obsidian vault, with citations
+- Short-term (per-session) and long-term (distilled, written back into the
+  vault) conversation memory
+- An MCP server so Claude Code/Desktop can search, read, and write your vault
+  directly
+- A deep-research agent with live web search, plus your vault
+- A five-agent team (Architect → Research → Developer → Testing → Analytics)
+  that takes a goal and builds it end to end
+- Self-improvement mode: the team can edit and commit directly to Topher's own
+  codebase, with a hard, non-overridable boundary around its own guardrails,
+  secrets, and git internals
+- A live web dashboard to watch every kind of run and trigger new ones,
+  reachable over your private network
+- A Windows installer with a system tray app, so the whole thing runs in the
+  background and can launch on login
 
-- [Roadmap](#roadmap)
-- [Setup](#setup)
-- [Usage](#usage)
-- [Project structure](#project-structure)
-- [Code style conventions](#code-style-conventions)
-- [Known limitations](#known-limitations)
-- [Development history](#development-history)
-- [Next steps](#next-steps)
+## Installation
 
-## Roadmap
+### Option A: Windows installer
 
-1. **Obsidian second-brain integration** — the assistant reads and writes to a personal Obsidian vault, so notes become a live knowledge base it can search and add to — ✅ complete (Phase 1)
-2. **Core assistant with memory** — semantic search over notes plus persistent conversation memory — ✅ complete (Phase 2)
-3. **Subagent framework** — one specialized agent (Research) that can be invoked by an orchestrator to handle a narrow task end-to-end — ✅ complete (Phase 3)
-4. **Multi-agent team** — a full set of specialized agents (Architect, Research, Developer, Testing, Analytics) that communicate and hand work off to each other — ✅ complete (Phase 4)
-5. **Dashboard UI** — a visual control-room style app to watch the agents work: multiple panels, live data, dark theme with glowing accents — ✅ complete (Phase 5, v1 watch-only)
-6. **Self-improving team, interactive + remote dashboard, full coverage** — the team can work on Topher's own real codebase under a hard technical boundary around its own safety wiring; the dashboard covers every kind of run (not just the 5-agent team), can trigger runs itself instead of only watching, and is reachable over a private network — ✅ complete (Phase 6)
+Download the latest `TOPHER-Setup-x.y.z.exe` from
+[Releases](https://github.com/dantepalmieri/TOPHER/releases) and run it. It
+installs to `%LOCALAPPDATA%\Programs\TOPHER` — no admin rights needed — and
+adds a Start Menu entry plus an optional "launch on login" shortcut.
 
-Each phase builds directly on the last. The vault access layer (Phase 1) is the
-foundation everything else depends on, so it was built and tested first before
-touching agents or orchestration.
+On first launch, a small setup window asks for your Anthropic API key (from
+[console.anthropic.com](https://console.anthropic.com)) and your Obsidian
+vault folder, validates the key live, and writes them to `.env` in the
+install directory. After that, Topher runs from a system tray icon:
 
-### Architecture direction (for later phases)
+- **Open Dashboard** — opens `http://127.0.0.1:8420/` in your browser
+- **Restart Server** / **Stop Server**
+- **View Logs**
+- **Settings...** — reopens the setup window to change your key or vault path
+- **Start on Login** — toggles the Startup-folder shortcut
 
-```
-                     +-------------------+
-                     |   2D Dashboard    |
-                     |  (control-room    |
-                     |   style UI)       |
-                     +---------+---------+
-                               |
-                       (WebSocket / IPC)
-                               |
-                     +---------v---------+
-                     |    Orchestrator    |
-                     |  (routes requests, |
-                     |  spawns subagents) |
-                     +----+----+----+-----+
-                          |    |    |
-             +------------+  +----+  +------------+
-             |               |               |
-      +------v-----+  +------v-----+  +------v-----+
-      |  Research  |  | Development|  |  Analytics |
-      |   Agent    |  |    Agent   |  |    Agent   |
-      +------+-----+  +------+-----+  +------+-----+
-             |               |               |
-             +-------+-------+-------+-------+
-                     |               |
-             +-------v------+  +-----v------+
-             |  Vector DB   |  |  Obsidian  |
-             | (note search)|  |    Vault   |
-             +--------------+  +------------+
-```
+Self-improvement mode needs [Git for Windows](https://git-scm.com/download/win)
+on `PATH` to commit changes — everything else works without it. The installer
+warns you if it's missing but won't block install.
 
-**Build-vs-buy decision:** the orchestrator, agent definitions, and prompts are
-custom (the project-specific part). Existing tools are used for infrastructure —
-Chroma for vector search, MCP for Obsidian access, the Claude Agent SDK for the
-Research agent — and a coordination framework like LangGraph is deliberately
-deferred until Phase 4, when multiple agents actually need to coordinate.
+Building the installer yourself, or wiring up the release pipeline, is
+covered in [`packaging/`](packaging/) and `.github/workflows/release.yml`.
 
-## Setup
+### Option B: From source
 
 ```powershell
-cd obsidian-claude
+git clone https://github.com/dantepalmieri/TOPHER.git
+cd TOPHER
 python -m venv venv
 venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 copy .env.example .env
 ```
 
-`.env` contents:
+Fill in `.env`:
 
 ```
 ANTHROPIC_API_KEY=your-api-key-here
 OBSIDIAN_VAULT_PATH=C:/Users/you/Documents/YourVaultName
 ```
 
-- `ANTHROPIC_API_KEY` — from console.anthropic.com
-- `OBSIDIAN_VAULT_PATH` — absolute path to your vault folder. Use forward slashes
-  (`C:/Users/...`) even on Windows, to avoid backslash-escaping issues.
-- `HF_TOKEN` — optional. Not read by this project's own code; picked up implicitly
-  by `sentence-transformers`/`huggingface_hub` when downloading the embedding model.
+- `ANTHROPIC_API_KEY` — from [console.anthropic.com](https://console.anthropic.com)
+- `OBSIDIAN_VAULT_PATH` — absolute path to your vault folder. Use forward
+  slashes (`C:/Users/...`) even on Windows, to avoid backslash-escaping
+  issues in `.env` parsing.
+- `HF_TOKEN` — optional, picked up implicitly by `sentence-transformers` when
+  downloading the embedding model.
 
-### Windows-specific notes
+**Windows notes:** use `python`, not `python3` (Windows intercepts `python3`
+as a Microsoft Store shortcut). If PowerShell blocks venv activation, run
+`Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`.
 
-- `python3` isn't recognized on Windows even with Python installed — Windows
-  intercepts it as a Microsoft Store shortcut. Use `python` instead.
-- PowerShell may block venv activation (`venv\Scripts\Activate.ps1`) due to
-  execution policy — fix with `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`.
+Every command below needs the venv active and must run from the project root
+— `second_brain` and its dependencies only exist in the venv, and `-m`
+resolves the package relative to your current directory.
 
 ## Usage
 
-**Every command below needs the venv active** (`venv\Scripts\Activate.ps1`) **and
-must run from the project root** — `second_brain`
-and its dependencies only exist in the venv, and `-m` resolves the package relative
-to your current directory. Running `python -m second_brain...` with your *system*
-Python, or from any other directory, fails with `ModuleNotFoundError: No module
-named 'second_brain'`. If you'd rather not activate, call the venv's Python
-directly instead: `venv\Scripts\python.exe -m second_brain...`.
-
 ```powershell
-python -m second_brain.cli            # vault Q&A with memory (Phases 1-2)
-python -m second_brain.research_cli   # deep research agent, live web + vault (Phase 3)
-python -m second_brain.team_cli       # full agent team: plan, research, build, review, report (Phase 4)
+python -m second_brain.cli            # vault Q&A with memory
+python -m second_brain.research_cli   # deep research: live web + vault
+python -m second_brain.team_cli       # full agent team on a goal
 ```
 
-`second_brain.cli` is the original assistant: ask it about your notes, it searches
-the vault semantically, answers with citations, remembers the conversation (both
-within a session and across separate runs), and can create/append vault notes when
-you ask it to.
+`second_brain.cli` is the core assistant: ask about your notes, it searches
+the vault semantically, answers with citations, remembers the conversation,
+and can create/append vault notes when you ask it to.
 
-`second_brain.research_cli` is a separate tool for open-ended research questions —
-"what's the latest on X", "look into Y for me" — that need live web search rather
-than just your existing notes. It can also search your vault when relevant.
+`second_brain.research_cli` is for open-ended research — "what's the latest
+on X" — that needs live web search rather than just your existing notes.
 
-`second_brain.team_cli` hands a goal to the full five-agent team — Architect plans
-it, Research investigates open questions, Developer builds it, Testing reviews it,
-Analytics reports on the result — printing each stage's output as it completes. Talk
-to one agent directly instead of the whole pipeline by prefixing your message with
-its name, e.g. `architect: plan a REST API for a todo app`.
+`second_brain.team_cli` hands a goal to the full team: Architect plans it,
+Research investigates open questions, Developer builds it, Testing reviews
+it, Analytics reports on the result. Talk to one agent directly instead of
+the whole pipeline with an `agentname:` prefix, e.g.
+`architect: plan a REST API for a todo app`.
 
-### Watching the team work (the dashboard)
+### The dashboard
 
 ```powershell
-python -m second_brain.dashboard.server   # starts the dashboard backend on http://127.0.0.1:8420
+python -m second_brain.dashboard.server   # http://127.0.0.1:8420
 ```
 
-Then open `http://127.0.0.1:8420/` in a browser (build the frontend first if you
-haven't — see below). You can watch a run started from a terminal
-(`python -m second_brain.team_cli`, `cli.py`, `research_cli.py`) the same way as
-before — both sides read/write the same local `dashboard.db` SQLite file, never
-talking to each other directly, so the CLIs work identically whether the dashboard
-server is running or not. As of Phase 6 you can also trigger a run directly from the
-dashboard itself, using the "Trigger a Run" panel at the top of the page — pick a
-goal and a mode (Team Pipeline, Research, Vault Q&A, or Self-Improve) and it starts
-the same way a CLI-triggered run would, then shows up live through the same
-WebSocket the rest of the dashboard already uses. Self-Improve mode gets its own
-confirmation dialog before it starts, since it's the one mode that lets the team
-commit directly to Topher's own real codebase.
-
-Building the frontend (one-time, or after changing it):
+Build the frontend first if you haven't:
 
 ```powershell
 cd dashboard-frontend
@@ -170,700 +127,82 @@ npm install
 npm run build
 ```
 
-The dashboard server serves the built `dashboard-frontend/dist` automatically once
-it exists. For frontend development with hot reload instead, run `npm run dev` in
-`dashboard-frontend/` alongside the dashboard server — Vite proxies `/api` and `/ws`
-to it (see `dashboard-frontend/vite.config.ts`).
+The dashboard shows every run (team pipeline, self-improve, research, vault
+Q&A) live, whether started from the "Trigger a Run" panel on the page itself
+or from a terminal — both read/write the same local `dashboard.db`, so the
+CLIs and the dashboard work independently of each other. Self-Improve mode
+gets its own confirmation dialog before it starts, since it's the one mode
+that lets the team commit directly to Topher's own codebase.
+
+For frontend development with hot reload, run `npm run dev` in
+`dashboard-frontend/` alongside the dashboard server.
 
 ### Remote access (private network only)
 
-By default the dashboard only binds to `127.0.0.1` — nothing outside your machine
-can reach it. To reach it from your phone or another device, set
-`DASHBOARD_SERVER_HOST` in `.env` to an address reachable from your private network,
-e.g. a [Tailscale](https://tailscale.com/) IP:
+By default the dashboard only binds to `127.0.0.1`. To reach it from another
+device on your own network, set `DASHBOARD_SERVER_HOST` in `.env` to an
+address reachable from that network — e.g. a [Tailscale](https://tailscale.com/)
+IP (`tailscale ip -4`) — then restart the server and open
+`http://<that-address>:8420/` from any device on it.
 
-```powershell
-tailscale ip -4      # find your machine's tailnet address, e.g. 100.x.y.z
-```
-
-```
-DASHBOARD_SERVER_HOST=100.x.y.z
-```
-
-Then restart `python -m second_brain.dashboard.server` and open
-`http://100.x.y.z:8420/` from any device on that tailnet.
-
-**Read this before setting it.** There is no login system — the private network
-itself is the entire access control. Once bound to a reachable address, *every*
-device on that network can both watch **and trigger runs**, including
-Self-Improve mode, with no further authentication. This is an intentional,
-deliberately simple design (a login system was explicitly out of scope for this
-phase), appropriate for a personal Tailscale-style network you control, but it
-means anyone else who ever joins that network gets the same access you do.
-
-If you want remote *watching* without remote *triggering*, that middle ground
-isn't built — it would mean binding the REST/WebSocket routes broadly while
-checking the request's source IP and requiring `127.0.0.1` specifically for
-`POST /api/trigger`. Worth doing if the two ever need different trust levels;
-skipped for now since it wasn't asked for and the full-access version is simpler.
+There is no login system — the private network itself is the entire access
+control. Every device that can reach that address can both watch and trigger
+runs, including self-improve mode.
 
 ### Registering the vault as an MCP server
-
-`.mcp.json` registers the vault as an MCP server for Claude Code (project-scoped
-config). It's gitignored, since it contains a machine-specific absolute path — copy
-the example and fill in your own path:
 
 ```powershell
 copy .mcp.json.example .mcp.json
 ```
 
+Fill in `.mcp.json` with your own absolute paths:
+
 ```json
 {
   "mcpServers": {
     "second-brain-vault": {
-      "command": "C:\\path\\to\\obsidian-claude\\venv\\Scripts\\python.exe",
-      "args": ["C:\\path\\to\\obsidian-claude\\run_mcp_server.py"]
+      "command": "C:\\path\\to\\TOPHER\\venv\\Scripts\\python.exe",
+      "args": ["C:\\path\\to\\TOPHER\\run_mcp_server.py"]
     }
   }
 }
 ```
 
-The self-locating launcher means no `cwd` field is needed. Use the **venv's** `python.exe` directly, not the system `python` — the server
-depends on packages (`mcp`, `chromadb`, `sentence-transformers`) only installed in
-the venv. Claude Code needs a restart/reload (or first-use approval) to pick up a
-new `.mcp.json`. If Claude Desktop is ever installed, the same command/args go in
-`%APPDATA%\Claude\claude_desktop_config.json` instead.
+Use the **venv's** `python.exe`, not the system `python`. The same
+command/args go in `%APPDATA%\Claude\claude_desktop_config.json` for Claude
+Desktop. Exposes 5 tools: `search_vault`, `list_vault_notes`,
+`read_vault_note`, `create_vault_note`, `append_to_vault_note`.
 
-Exposes 5 tools: `search_vault`, `list_vault_notes`, `read_vault_note`,
-`create_vault_note`, `append_to_vault_note` — confirmed working both via a
-standalone stdio test client and from inside a live Claude Code session.
-
-## Project structure
+## Project layout
 
 ```
 second_brain/
-  identity.py               - TOPHER_IDENTITY_TEXT, the shared identity text every agent's
-                              system prompt is built from (client.py and all 5 team agents)
-  config.py                - all constants (model name, vault path, limits, embedding model,
-                              chroma collection name, history file path/context window,
-                              assistant memory folder name, summarization token limit,
-                              research agent's venv/launcher paths, every team agent's
-                              model name, the team's sandbox workspace path, the
-                              dashboard's db path/host (env-overridable as of Phase 6,
-                              for remote access)/port/poll interval/staleness threshold,
-                              and - Phase 6 - SELF_MODIFICATION_PROTECTED_PATHS, the
-                              denylist self_modification_guard.py resolves and enforces);
-                              locates .env/conversation_history.json relative to its own
-                              file location, not the process's working directory. Itself
-                              on the protected list, since an unprotected config.py could
-                              be edited to move workspace_guard.py's sandbox boundary too
-  types.py                  - shared dataclasses: NoteMatch (match_score is float), ClaudeAnswer,
-                              ConversationTurn (role, content), PipelineStageResult
-                              (agent_name, output_text), RunSummary, RunDetail,
-                              VaultEvent (dashboard persistence records)
-  vault/
-    vault_reader.py         - ALL filesystem reads: list_note_files (skips hidden dirs like
-                              .trash/.obsidian), read_note_content, get_note_title,
-                              find_note_file_path_by_title (title -> path, for the write tools)
-    semantic_search.py      - embeds vault notes + question via sentence-transformers, searches
-                              an in-memory Chroma collection (search_notes_by_semantic_similarity);
-                              the only module that touches chromadb/sentence-transformers
-    vault_writer.py         - ALL filesystem writes: create_note, append_to_note,
-                              create_or_append_note_in_folder (used by assistant_memory.py)
-  claude/
-    client.py               - builds a multi-turn message list from prior turns + this turn's
-                              vault context, calls the Claude API with vault-write tools
-                              available (create_note/append_to_note via a tool-use loop),
-                              reports what was written back to the caller; also
-                              summarize_conversation_for_memory
-  conversation_history.py   - the ONLY module that touches conversation_history.json (short-term
-                              rolling-window replay buffer): load_conversation_history,
-                              append_turns_to_history
-  assistant_memory.py       - long-term memory: save_session_to_memory distills a session via
-                              client.py and writes it into the vault's Assistant Memory/ folder
-                              via vault_writer.py, so it's searchable like any other note
-  agents/
-    research_agent.py / research_prompt.py
-                              - Research: investigates open questions and gathers sources for a
-                              plan or goal. Built on the Claude Agent SDK (not the raw anthropic
-                              client), gets WebSearch/WebFetch for free plus the vault's own MCP
-                              tools. Explicitly scoped to never attempt building/writing files,
-                              even when handed a plan full of build milestones (see Phase 4
-                              development history for why that scoping exists)
-    architect_agent.py / architect_prompt.py
-                              - Architect: turns a goal into a scoped, milestoned plan through
-                              collaboration with the user, then hands it to Research. Read-only
-                              tools + vault MCP only - no write/edit/bash, so it can never build
-                              anything itself. As of Phase 6, has an explicit cwd and
-                              self_modification_guard.py's read-side checks registered - see
-                              Phase 6 development history for the live vulnerability this fixed
-    developer_agent.py / developer_prompt.py
-                              - Developer: builds whatever the plan calls for - code, scripts,
-                              configs. The first agent with real Write/Edit/Bash access. Two
-                              modes as of Phase 6 (never both hooks at once): sandboxed to the
-                              workspace/ directory via workspace_guard.py by default, or - only
-                              when a run is explicitly self_improvement_mode - Topher's own real
-                              project root via self_modification_guard.py's denylist instead
-    testing_agent.py / testing_prompt.py
-                              - Testing: security/correctness/quality review. Deliberately has no
-                              write or edit tools - it reports what's wrong, Developer fixes it
-                              on the next pass. Same two-mode pattern as developer_agent.py; in
-                              self-improvement mode, also required to call out any new dependency
-                              or any new autonomous/scheduled-execution capability it finds
-    analytics_agent.py / analytics_prompt.py
-                              - Analytics: the data/metrics expert - calculates, organizes, and
-                              reports on what the team produced. Read/Write/Bash plus the vault's
-                              MCP tools; same two-mode pattern as developer_agent.py for its
-                              filesystem boundary
-    team_workspace.py       - ensure_team_workspace_directory_exists(), the shared sandbox
-                              directory helper used by developer/testing/analytics
-    workspace_guard.py       - check_tool_stays_in_workspace, a Claude Agent SDK PreToolUse hook
-                              registered on developer/testing/analytics (non-self-improvement
-                              mode) - the sandbox enforcement. cwd alone only sets a starting
-                              directory; this hook denies any Write/Edit/Bash call that resolves
-                              outside workspace/, verified directly against a real escape attempt
-                              (see Phase 5 development history). An allowlist (stay inside
-                              workspace/) - the opposite shape from self_modification_guard.py
-                              below
-    self_modification_guard.py
-                              - check_self_modification_is_safe, Phase 6's PreToolUse hook for
-                              self-improvement mode - a denylist (stay out of
-                              config.py's SELF_MODIFICATION_PROTECTED_PATHS anywhere within the
-                              whole project root), registered on Architect always and on
-                              Developer/Testing/Analytics only in self_improvement_mode. Gates
-                              Read/Write/Edit/Grep/Glob/Bash - a wider tool surface than
-                              workspace_guard.py, since self-improvement mode also has to protect
-                              secrets from being read, not just from being overwritten. Resolves
-                              every path via os.path.realpath for symlink/junction
-                              defense-in-depth and explicitly denies Bash link-creation commands
-                              (mklink/fsutil hardlink), since a hardlink can't be caught by
-                              realpath after the fact (see Phase 6 development history)
-  dashboard/
-    run_store.py             - owns ALL sqlite access for the dashboard (runs/stages/
-                              vault_events tables, wal mode, busy_timeout). run_type is
-                              team_pipeline, self_improve, solo_research, or vault_qa (Phase 6
-                              added the latter three) - team_cli.py, cli.py, research_cli.py,
-                              mcp_server.py, and the dashboard server itself (via run_trigger.py)
-                              all write here directly; never talk to each other over the network
-    run_trigger.py            - Phase 6, protected (see config.py below): the shared "create a
-                              run, dispatch to the right pipeline shape for its mode, persist
-                              progress, infer the in-flight agent on failure" logic - the one
-                              place that decides whether a run gets the sandboxed workspace/
-                              boundary or the real project root. create_pending_run (fast, one
-                              insert) is split from execute_run (the actual blocking agent work)
-                              so server.py's POST /api/trigger can return a run_id immediately
-                              and run the work in a background thread instead of blocking the
-                              response; start_run wraps both together for callers with no event
-                              loop of their own (team_cli.py)
-    server.py                - FastAPI app: GET /api/runs, GET /api/runs/{id},
-                              GET /api/vault-events, WS /ws (sends current run snapshot
-                              on connect, then live push), and - Phase 6 - POST /api/trigger
-                              (validates goal/mode, calls run_trigger.create_pending_run
-                              synchronously for an immediate run_id, then runs execute_run in a
-                              tracked background asyncio task via asyncio.to_thread). Background
-                              poller wraps every run_store call in asyncio.to_thread so a query
-                              never blocks websocket delivery; serves the built frontend.
-                              Entry point: python -m second_brain.dashboard.server
-  orchestrator.py            - routes a request to a subagent, or all five in sequence via
-                              run_full_team_pipeline(goal, on_stage_complete=..., 
-                              self_improvement_mode=False) - Architect -> Research -> Developer
-                              -> Testing -> Analytics, each stage's output threaded into the next
-                              stage's input as context. Every agent stays independently callable
-                              too (handle_architect_request, etc.); has zero awareness the
-                              dashboard exists - callers add that. self_improvement_mode, added
-                              in Phase 6, is the one switch that points Developer/Testing/
-                              Analytics at the real project root instead of workspace/ - protected
-                              (config.py's SELF_MODIFICATION_PROTECTED_PATHS), since it's exactly
-                              the kind of mode-dispatch logic that must never become self-editable
-  research_cli.py            - second, separate interactive entry point for the research
-                              agent; owns all of its own terminal I/O, mirrors cli.py's loop.
-                              Persists each question as a one-stage solo_research run via
-                              run_trigger's run_store as of Phase 6
-  team_cli.py                 - third interactive entry point, for the full agent team: runs
-                              the whole pipeline on a plain goal, or dispatches to one agent
-                              directly via an "agentname:" prefix; owns all of its own terminal
-                              I/O. Delegates run persistence and in-flight-agent inference to
-                              run_trigger.py as of Phase 6 (previously implemented this itself)
-  cli.py                     - the ONLY file touching stdin/stdout for the main assistant;
-                              interactive loop (input()/print()), saves session memory on
-                              exit, prints a "Vault changes:" section whenever Claude writes
-                              to the vault. Persists each turn as a one-stage vault_qa run in
-                              run_store as of Phase 6
-  mcp_server.py               - exposes vault_reader/vault_writer/semantic_search as 5 MCP
-                              tools; registered with Claude Code via .mcp.json. The dashboard's
-                              vault-activity instrumentation point for the team's agents (not
-                              vault_writer.py - see Phase 5 development history for why);
-                              claude/client.py has its own separate instrumentation point for
-                              cli.py's vault writes, added in Phase 6
-run_mcp_server.py              - self-locating launcher for mcp_server.py; works regardless
-                              of the spawning process's working directory
-workspace/                     - sandbox directory developer/testing/analytics operate in;
-                              created on demand, not committed by default - the team's actual
-                              deliverables land here
-dashboard-frontend/            - React + TypeScript + Vite dashboard UI, a separate JS project
-                              (own package.json) sibling to second_brain/. src/hooks/
-                              useDashboardSocket.ts owns the WebSocket connection; src/
-                              components/ has AgentStatusBoard, VaultActivityFeed,
-                              HistoryTimeline, RunDetailPanel, and - Phase 6 - TriggerPanel
-                              (the goal/mode form that calls POST /api/trigger, with its own
-                              confirmation dialog for self_improve mode) and
-                              NonTeamRunIndicator (AgentStatusBoard's 5-card grid only fits
-                              team_pipeline/self_improve runs; every other run_type gets this
-                              simpler one-line indicator instead); src/runTypeDisplay.ts holds
-                              the shared run_type labels; src/styles/theme.css is the dark
-                              mission-control palette. `npm run build` output (dist/) is what
-                              the dashboard server serves, and is gitignored
-dashboard.db                   - the dashboard's run history (sqlite, WAL mode - gitignored
-                              along with its -wal/-shm sidecar files). On the Phase 6
-                              self-modification denylist, including its -wal/-shm sidecars -
-                              it's the team's own audit trail, and the -wal file is open
-                              concurrently by the dashboard server if one is running
-.mcp.json                      - Claude Code project-scoped MCP server registration (gitignored -
-                              contains a machine-specific absolute path; copy .mcp.json.example).
-                              On the Phase 6 self-modification denylist
-requirements.txt              - anthropic, python-dotenv, chromadb, sentence-transformers,
-                              mcp (pinned <2.0.0 - claude-agent-sdk requires it), claude-agent-sdk,
-                              fastapi, uvicorn[standard]
-.env.example                  - ANTHROPIC_API_KEY, OBSIDIAN_VAULT_PATH, and - Phase 6 -
-                              DASHBOARD_SERVER_HOST (optional, for remote access)
-conversation_history.json     - short-term memory: persisted chat log at the project root
-                              (gitignored — personal data, never commit this). On the Phase 6
-                              self-modification denylist
+  identity.py, config.py, types.py   - shared identity text, config, dataclasses
+  vault/                              - reading, writing, and semantically searching the vault
+  claude/client.py                    - the core assistant's Claude API calls + vault-write tools
+  conversation_history.py             - short-term memory
+  assistant_memory.py                 - long-term memory, written back into the vault
+  agents/                             - the five team agents, plus the sandbox/self-mod guards
+  dashboard/                          - run_store.py (sqlite), run_trigger.py, server.py (FastAPI)
+  orchestrator.py                     - routes a request to one agent, or the full team pipeline
+  cli.py / research_cli.py / team_cli.py   - the three interactive entry points
+  mcp_server.py                       - exposes the vault as 5 MCP tools
+run_mcp_server.py       - self-locating launcher for mcp_server.py
+workspace/              - sandbox directory the team builds in (non-self-improve mode)
+dashboard-frontend/     - React + TypeScript + Vite dashboard UI
+packaging/              - Windows installer, launcher, and build scripts
+tests/                  - pytest suite
 ```
 
-**Vault structure note:** the vault gets an `Assistant Memory/` folder (created
-automatically on first use) containing one dated note per day (`YYYY-MM-DD.md`) of
-distilled session summaries — long-term memory, separate from
-`conversation_history.json` above.
+## Development
 
-**Models in use:** `cli.py`'s direct API calls use `claude-sonnet-4-6`. The
-research agent, built on the Claude Agent SDK, uses the `"sonnet"` model alias.
+```powershell
+pip install -r requirements.txt -r requirements-dev.txt
+ruff check .
+pytest tests/ -v
+```
 
-## Code style conventions
-
-Applies to all code in this project, including `dashboard-frontend/`'s TypeScript
-(explicit indexed loops instead of `.map()`/`.filter()`, if/else with an
-intermediate variable instead of ternaries, named functions over inline ones where
-React's API allows it — React event handlers and functional state updaters are the
-one unavoidable exception, since JSX requires a function reference):
-
-- No non-self-documenting or single-letter variable names, except loop counters, math formulas, or established conventions (`x`/`y` coordinates) — this project favors descriptive names even in loops (e.g. `file_index`, not `i`)
-- No state mutation inside function calls or subscripts (no `array[index++]`)
-- No incomplete/empty for-loop headers
-- `True`/`False`, never `1`/`0`, for booleans
-- Constants instead of magic numbers or repeated literals (see `config.py`)
-- No global variables
-- No `break` (Python has no switch statement, so loops rely on natural exit conditions)
-- No `continue`
-- 4-space indentation, no tabs
-- I/O isolated to designated modules: `cli.py`, `research_cli.py`, and `team_cli.py` each own all of their own terminal I/O (the orchestrator takes an optional callback for progress reporting rather than printing itself); `vault_reader.py`/`vault_writer.py` own all filesystem access
-- No calling one function directly inside another function's call — always assign an intermediate variable
-- No empty `if`/`else` blocks
-- No extremely long lines
-- No ternary/conditional expressions
-- Prefer explicit indexed loops (`for i in range(len(collection))`) over implicit iteration
-- No unspecified/undefined utility functions — every helper must be defined in the codebase
-
-## Known limitations
-
-Intentional, not bugs to silently "fix":
-
-- Index is rebuilt from scratch (in-memory, no persistence) on every search call — fine for a small vault, would need incremental/persistent indexing if the vault grows much larger
-- `conversation_history.json` grows unboundedly on disk (only the context sent to Claude per call is capped) — no pruning of old turns yet; `Assistant Memory/` notes also just accumulate, one dated note per day, with no consolidation of older days
-- Search-query context-folding for follow-ups only looks one question back, not the full conversation
-- Notes are embedded whole, not chunked by heading — fine for short personal notes, would dilute relevance on much longer notes
-- `vault_writer.py` writes raw text with no awareness of Obsidian conventions (`[[wikilinks]]`, tags, frontmatter)
-- MCP tools have no destructive-action confirmation beyond refusing to overwrite an existing note title
-- The CLI's own write tools (separate from MCP) write immediately with no confirmation gate, by explicit user choice — guarded only by a prompt instruction telling Claude to write only when clearly asked, plus always printing what changed
-- `create_note`/`append_to_note` only support whole-file create and blind append — no way to edit a specific section/heading of an existing note
-- `run_full_team_pipeline` always runs the full Architect → Research → Developer → Testing → Analytics chain — no way to start partway through or skip a stage yet, beyond addressing one agent directly outside the pipeline
-- Developer/Testing/Analytics are sandboxed to a single shared `workspace/` directory, not a per-goal or per-project directory — running two unrelated goals back to back means the second run's agents can see the first run's files
-- The dashboard shows only one active run at a time by design — nothing stops two `team_cli.py` processes running concurrently, but the status board only ever surfaces the single most-recently-started run; concurrent sessions produce undefined status-board behavior, acceptable for actual single-user usage
-- The vault activity feed only ever shows Architect/Research/Analytics activity — Developer/Testing have no vault MCP tools wired up. `cli.py`'s own vault writes go through a separate instrumentation point in `claude/client.py` (not `mcp_server.py`, which only the team's agents ever call) as of Phase 6, so they now appear in the same feed too (see Phase 6 development history)
-- Single-agent requests in `team_cli.py` (the `architect:`/`developer:`/etc. prefix) never appear in the dashboard's history — only full pipeline runs are persisted
-- A run abandoned mid-flight (Ctrl+C that somehow escapes the handler, a hard crash) displays as "interrupted" once its most recent activity goes stale (25 minutes) rather than a spinner forever — a read-time display heuristic, not a background reaper
-- `workspace_guard.py`'s Bash-command check is a best-effort regex scan for Windows absolute paths, not an OS-level jail — proportionate to a single-user personal assistant, but not airtight against a sufficiently obfuscated command (environment variable expansion, indirection through a generated script). Write/Edit's own check is fully reliable, since those tools take a structured `file_path` argument rather than a free-form shell string
-- The dashboard's visual design (layout, the glow effect, whether the mission-control aesthetic actually reads the way it was intended to) has not been confirmed in an actual browser — only that the underlying data reaches the frontend correctly
-
-## Development history
-
-### Phase 1 — vault search CLI
-
-A minimal command-line tool: ask a question, keyword-search the vault, send the
-top matches plus the question to Claude, print the answer and its sources. No
-embeddings, no MCP server, no orchestrator — deliberately minimal, to validate the
-read → retrieve → ask → answer loop before adding complexity.
-
-Originally scaffolded in TypeScript, then rewritten in Python 3.11 after the user
-said they weren't comfortable in TypeScript — same architecture and logic, nothing
-lost.
-
-**Two bugs found and fixed during testing:**
-
-1. A note titled `d2d` scored zero on the query `d2d`, because keyword scoring only checked note *body* content, never the title/filename. Fixed by also scoring title matches, weighted 10x, so a filename match outranks incidental body mentions.
-2. Multi-word questions like *"What do I need to do in my d2d?"* never matched anything, because the whole question was searched as one literal phrase. Fixed by extracting individual search terms (lowercased, punctuation-stripped, stop words removed) and scoring each note against every remaining term.
-
-### Phase 2 — semantic search, conversation memory, MCP server, vault writes
-
-**Semantic search:** swapped keyword search for embedding-based search — Chroma
-(in-memory, rebuilt on every call — the vault is small enough that this is cheap)
-with local `sentence-transformers` embeddings (`all-MiniLM-L6-v2`), so nothing
-leaves the machine and no new API account is needed. Two bugs found while
-verifying against the real vault: notes in the vault's `.trash`/`.obsidian`
-folders were being embedded and returned as matches (fixed by skipping any
-directory starting with `.`), and reusing the Chroma client within one process
-threw on "collection already exists" (fixed with `get_or_create_collection` plus
-explicit clearing before re-adding).
-
-**Conversation memory:** an interactive loop that keeps prompting until `exit`/
-`quit`/EOF, persisting to `conversation_history.json` after every turn — giving
-both in-session follow-ups and cross-run memory from the same mechanism. Only the
-most recent turns are replayed to Claude each call to bound token usage, but the
-full history persists on disk. Two bugs found while testing multi-turn behavior:
-vague follow-ups ("which one should I start with?") pulled irrelevant notes
-because the vector search had nothing to go on — fixed by folding the previous
-question into the search query for follow-ups; and a `UnicodeEncodeError` crashed
-the CLI when an answer contained non-ASCII characters, because Windows' default
-terminal codepage (cp1252) can't encode them — fixed with
-`sys.stdout.reconfigure(encoding="utf-8")`.
-
-**MCP server:** wrapped the vault as 5 MCP tools using the official Anthropic MCP
-Python SDK, verified over a real stdio client session against the actual vault
-(list, search, create, duplicate-create error handling, append, read). One real
-deployment gotcha: the project isn't installed as a package, so imports and
-`.env` loading only resolved correctly when launched from the project root — an
-MCP client won't necessarily do that. Fixed by having `config.py` locate files
-relative to its own file location rather than the process's working directory,
-plus a self-locating `run_mcp_server.py` launcher — re-verified from an unrelated
-working directory with no `cwd` or `PYTHONPATH` help.
-
-**Long-term memory as vault notes:** each session's new turns get distilled by
-Claude into a short summary and written to a dated note under `Assistant Memory/`
-in the vault — additive to the short-term `conversation_history.json`, not a
-replacement. Because it's a real vault note, it's automatically picked up by
-semantic search with no special-casing. Verified end-to-end across three separate
-process runs: a session distilled into a real summary note, that note ranked #1
-for a related semantic search, and a brand-new process correctly recalled and
-cited it.
-
-**Vault writes wired into the CLI:** Claude can create/append vault notes directly
-from a conversation via a tool-use loop in `client.py`, using a write-immediately-
-report-after policy (the user's explicit choice over a confirmation gate) —
-guarded by a prompt instruction to only write when clearly asked, plus always
-printing a `Vault changes:` section. Verified create, append-by-title, and the
-duplicate-title error path all work against the real vault.
-
-### Phase 3 — the Research agent
-
-The Research agent is Phase 3's first subagent, built on the **Claude Agent SDK**
-(`claude-agent-sdk`) rather than the raw `anthropic` client — it ships a built-in
-`WebSearch` tool for free, and can attach the vault's existing MCP server directly
-via `mcp_servers`, so one agent can search the live web and the user's own notes
-in the same tool-use loop.
-
-`second_brain/agents/research_agent.py` restricts the agent to exactly
-`WebSearch`, `WebFetch`, and the vault's `mcp__vault__*` tools, with a system
-prompt built around deep, rigorous, source-verified research: deconstruct the
-query into sub-questions, search broad-to-narrow, cross-verify conflicting data
-points across sources, and cite every key figure with an inline source URL.
-
-**One real dependency conflict found while installing the SDK:** `claude-agent-sdk`
-pins `mcp<2.0.0`, so installing it silently downgraded the project's `mcp` package
-from 2.0.0 to 1.29.0 — which broke `mcp_server.py`, since the 2.0.0-specific
-`mcp.server.mcpserver.MCPServer` class no longer exists in 1.x. Fixed by switching
-to the 1.x equivalent, `mcp.server.fastmcp.FastMCP`, which has an identical
-`.tool()`/`.run(transport="stdio")` API — confirmed identical, not assumed; the
-existing tool decorators needed zero changes. `requirements.txt` now pins
-`mcp<2.0.0,>=1.23.0` so this can't silently regress again.
-
-A minimal orchestrator (`orchestrator.py`) and a second interactive entry point
-(`research_cli.py`, mirroring `cli.py`'s own loop structure) complete the phase.
-With only one subagent, the orchestrator is intentionally a plain function
-(`handle_research_request`) rather than an SDK-level coordinator agent — real
-routing logic is Phase 4's job, once there's a second agent to route between.
-
-**Verified end-to-end, not just that the modules import:** asked the research
-agent a real question requiring live web search — it searched, returned a
-correctly cited answer. Separately, asked it to search the vault only — it used
-the vault's MCP tool for real, correctly reported the actual vault contents, and
-caught and explicitly flagged a fabricated note left over from an old Phase 2 test
-session rather than repeating it as fact, direct evidence the system prompt's
-"never assume facts, cross-verify" instruction is actually shaping behavior. The
-full CLI path (`python -m second_brain.research_cli`) was also verified with real
-piped input, including the EOF-as-clean-exit path.
-
-### Phase 4 — the agent team
-
-Four new agents joined Research to form the full team, each with a distinct
-personality the user specified directly: **Architect** (strategic, structured,
-plans with the user then hands off — no execution tools at all), **Developer**
-(pragmatic, decisive, the first agent with real Write/Edit/Bash access),
-**Testing** (skeptical by default, security/quality-focused, deliberately has no
-write access — it reports, Developer fixes), and **Analytics** (precise,
-quantitative, defaults to tables and shown work over prose).
-
-**Tool scoping was the main design decision, not the personalities.** Developer
-and Testing needed real filesystem/command-execution access for the first time in
-this project — rather than guess at a target directory or leave them unscoped, both
-(plus Analytics) are sandboxed via `cwd` to a dedicated `workspace/` directory
-(`team_workspace.py`), never this project's own source or an arbitrary path.
-Testing shares Developer's exact workspace so it reviews real files, not a
-description of them.
-
-`orchestrator.py` was rewritten with the real routing logic the Phase 3 writeup
-called out as premature until a second subagent existed: every agent stays
-independently callable (`handle_architect_request`, etc.), and
-`run_full_team_pipeline(goal, on_stage_complete=...)` chains all five in their
-natural handoff order, threading each completed stage into the next stage's input
-as context. The callback parameter keeps the orchestrator itself free of I/O — the
-printing happens in whatever the caller passes in, matching the project's I/O-
-ownership convention rather than bending it. A hand-rolled Python orchestrator was
-kept over adopting LangGraph or a similar framework — five agents in a fixed
-handoff order don't yet need a graph framework's complexity; revisit if routing
-gets meaningfully non-linear.
-
-**One real bug found and fixed during verification, not just a clean pass:** running
-the full pipeline end-to-end, Research responded to Architect's plan with *"I don't
-have write permission for this directory yet. Please grant permission..."* —
-confusing, since Research was never given write tools at all. Root cause: Research's
-system prompt had no concept of operating inside a team pipeline, so when handed a
-plan full of build milestones ("Create `add.py`...") it tried to act on them
-directly, hit the SDK's tool restriction, and misreported a role mismatch as a
-permissions problem. Fixed by adding an explicit "Your role on a team" section to
-`RESEARCH_AGENT_SYSTEM_PROMPT`: build steps belong to Developer, never to Research,
-and if a plan has nothing left to research, say so in a sentence and stop — don't
-describe that as a permissions issue. Re-verified with the exact context that
-triggered the bug: Research now correctly stays in its lane, attempts what it
-actually can do (checking tool availability), and hands off cleanly.
-
-**Verified end-to-end against a real (intentionally tiny) goal**, not just that the
-modules import: *"Build a tiny Python function that adds two numbers, with one test
-file that verifies it"* ran through all five agents for real. Architect produced a
-scoped plan and correctly skipped unnecessary clarifying questions since the task
-was trivial. Research (post-fix) correctly assessed nothing further was needed.
-Developer wrote real files into `workspace/` (`add.py`, `test_add.py`) and ran the
-test itself, confirmed passing. Testing independently re-ran the test rather than
-trusting Developer's claim, reviewed the code, and reported a clean verdict with
-one honestly-labeled non-blocking coverage gap. Analytics independently re-verified
-the same test run, then produced a metrics rollup (LOC, test counts, plan-vs-actual
-milestone tracking) with sourced figures, not estimates. Test artifacts were
-removed from `workspace/` afterward to leave a clean slate.
-
-**Naming, after the repo went public:** the project and its GitHub repo were named
-TOPHER (T.O.P.H.E.R.), with the assistant going by "Topher" or "Toph" — a nod to
-JARVIS, one consistent assistant identity across every surface. `second_brain/identity.py`
-holds that identity text once; every team agent's system prompt and `client.py`'s
-raw API calls now build on top of it, so the name applies everywhere without
-duplicating the text five times or overwriting any agent's own distinct personality.
-
-### Phase 5 — the dashboard
-
-A localhost-only web dashboard to watch the 5-agent team work in real time —
-requirements were gathered directly from the user through several rounds of
-questions before any design work started: read-only for v1 (the CLI stays the only
-way to kick off a run), scoped to just the 5-agent team, a live agent status board,
-a vault activity feed, and a history/timeline where clicking a past run shows its
-full transcript. A Plan subagent validated the proposed architecture against the
-real codebase (not just reasoned about abstractly) before any code was written —
-that pass caught several real gaps: async event-loop blocking, SQLite's WAL mode
-being single-writer not multi-writer, last-seen-ID seeding on server restart, and
-that `team_cli.py`'s pipeline call had zero error handling at all before this phase.
-
-**Architecture:** `team_cli.py` and `mcp_server.py` write directly to a local
-SQLite database (`second_brain/dashboard/run_store.py`, WAL mode, explicit
-`busy_timeout`) — never to the dashboard server over a network. The FastAPI
-backend (`second_brain/dashboard/server.py`) polls that same database every 0.5s
-and pushes new events to connected browsers over WebSocket. This means the CLI and
-agents work identically whether the dashboard server is running or not — verified
-directly by stopping the server entirely, running a real pipeline, and confirming
-the CLI behaved exactly as it did before this phase existed. `orchestrator.py`
-itself needed zero changes: its `on_stage_complete` callback, built in Phase 4
-specifically for this kind of extension, turned out to be exactly the right shape.
-Attributing which agent was in flight during a mid-pipeline failure (including
-Ctrl+C, which a plain `except Exception` does not catch) was solved entirely in
-`team_cli.py` by indexing into the fixed pipeline order with how many stages had
-already completed — no orchestrator changes needed there either.
-
-**Vault-activity instrumentation deliberately lives in `mcp_server.py`, not
-`vault_writer.py`.** Reading the actual call graph confirmed `cli.py`'s own vault
-writes go through `claude/client.py` directly, completely bypassing
-`mcp_server.py` — so instrumenting `mcp_server.py` naturally captures exactly "the
-team's vault activity" with zero coupling added to `vault_writer.py`, a
-foundational module used everywhere that should stay unaware the dashboard exists.
-
-**A real, serious bug found during verification — not a clean pass:** running a
-real goal through the full pipeline, Developer used its Bash tool to create real
-files inside an unrelated folder elsewhere on the machine that already existed
-with its own pre-existing content — completely outside the intended
-`workspace/` sandbox. Root cause: `cwd` on `ClaudeAgentOptions` only sets a
-*starting* directory. It does not restrict where Write/Edit/Bash can actually
-reach — that claim in this README, going back to Phase 4, was simply wrong, and
-had been wrong since Phase 4. The first fix attempted (`can_use_tool`, the SDK's
-documented per-call permission callback) turned out to be silently shadowed
-whenever a tool is already granted via `allowed_tools` — exactly this project's
-setup — confirmed directly via the SDK's own `CanUseToolShadowedWarning` before any
-false confidence took hold. The real fix is a `PreToolUse` hook
-(`second_brain/agents/workspace_guard.py`), the SDK's own documented way to gate
-every tool call regardless of `allowed_tools`: it checks Write/Edit's `file_path`
-argument directly (fully reliable — a structured field, not a parsed string), and
-applies a best-effort regex scan for Windows absolute paths in Bash commands
-(a heuristic, not an OS-level jail, but proportionate to this project's actual
-threat model of a single personal user, not an adversarial multi-tenant boundary).
-Registered on Developer, Testing, and Analytics — the three agents with real
-filesystem/Bash access to the shared workspace.
-
-**Verified the fix directly against the exact failure mode, not just a clean
-pass:** re-ran the original scenario and confirmed Developer now refuses and
-explains why, even under an explicit instruction to write outside its working
-directory via an absolute path — both through the Write tool and, separately,
-through Bash's own `mkdir`. Confirmed via `PermissionResultAllow`/legitimate
-in-workspace writes that the fix isn't over-broad: a normal in-sandbox file write
-still succeeds normally. Every stray file and folder created during this
-investigation was found and removed, including confirming a pre-existing,
-unrelated file already sitting in that folder (dated well over a year before this
-session) was never touched.
-
-**End-to-end verification, combining both concerns for real:** with the sandbox
-fix in place and the dashboard server running, a full pipeline run was executed
-through the actual `team_cli.py` entry point (not a simulation) — confirmed live
-in the dashboard's REST API that the run tracked correctly stage by stage, that
-Developer's real output files landed inside `workspace/` as intended, and that the
-run appeared correctly in history with its full transcript retrievable afterward.
-Static frontend assets (the built `dashboard-frontend/dist`) were confirmed served
-correctly from the same backend process.
-
-**One honest gap in this verification:** browser tooling wasn't available this
-session, so the dashboard's actual rendered UI — layout, the glow effect, whether
-the mission-control aesthetic reads the way it was designed to — was never
-visually confirmed, only that the right HTTP/WebSocket data reaches the frontend
-correctly. Worth an actual look in a browser before treating the visual design
-itself as verified.
-
-### Phase 6 — self-improving team, interactive + remote dashboard
-
-Three foundational questions were asked directly and answered before any design
-work started: self-modification may commit directly to the codebase but must
-never touch its own guardrails; autonomy stays fully manual (the dashboard is
-always up, but every run still starts because a human triggered it); remote
-access is private-network-only, with no login system — the network itself is the
-access boundary.
-
-**A live, unrelated vulnerability found before any new design work began:**
-Architect had unrestricted real-filesystem `Read`/`Glob`/`Grep` access with no
-guard hook at all, because `architect_agent.py` set no `cwd` — an unset `cwd`
-means the SDK's subprocess inherits the parent process's own working directory,
-the project root, whenever `team_cli.py` is run the documented way. Nothing
-stopped `Read(".env")`. Fixed first, standalone, before the rest of the phase:
-Architect now gets an explicit `cwd` and the same guard machinery below.
-
-**Self-modification needed a denylist, not a bigger allowlist.** The existing
-`workspace_guard.py` enforces "stay inside `workspace/`" — self-modification
-needed "stay out of these specific paths within the whole project," a
-structurally different check, so it's a separate module
-(`second_brain/agents/self_modification_guard.py`), never registered alongside
-`workspace_guard.py` on the same run. A Plan subagent pressure-tested the first
-draft against the real codebase specifically on this piece, since it's the
-highest-stakes part of the phase, and found real gaps a design-only review would
-have missed: an absolute-path-only regex would have let `cat .env` and
-`findstr ANTHROPIC .env` sail straight through on their relative paths; unscoped
-`Grep`/`Glob` from the project root never *names* `.env` but walks straight
-through it, so search tools needed an ancestor-direction check, not a point-wise
-one; `config.py` itself had to be protected, since it defines the sandbox
-boundary `workspace_guard.py` derives from; and the mode-dispatch logic deciding
-"this run gets the unrestricted self-mod `cwd`" had to be protected too, since an
-agent that can't beat the path checks could instead just make ordinary runs
-always resolve to the unrestricted mode. The final denylist also covers
-`.mcp.json`, `.git`, `.claude`, `conversation_history.json`, `dashboard.db*`, and
-`venv/` — anything gitignored, on the reasoning that "it's fine because it's a
-reviewable git diff" (the whole safety argument this capability leans on) is
-false for anything git never sees. Bash commands that create hardlinks/symlinks
-(`mklink`, `fsutil hardlink`) are denied outright by command pattern, not path
-resolution, since a hardlink is a second directory entry to the same file and
-can't be detected by `realpath()` after the fact.
-
-**This protects files, not capabilities, and the README says so rather than
-papering over it.** A denylist stops specific files from being edited; it cannot
-stop the team from writing *new* code that adds exactly the scheduling or
-proactive self-triggering behavior the user said was out of scope, since a new
-file isn't touching anything denylisted. Mitigated with a soft layer, not a false
-promise of a hard block: every agent's system prompt now carries an explicit
-instruction never to build autonomous or scheduled execution unless the user
-asked for exactly that in the current conversation, plus a standing instruction
-for Testing/Analytics to flag it if a change introduces new background-execution
-capability, so a human notices even where the file-level guard structurally
-cannot.
-
-**Prompt/wiring split, done for real this time.** Each agent's personality
-(`developer_prompt.py`, etc.) is now a separate, freely-editable module from its
-wiring (`developer_agent.py` — tool grants, `cwd`, hooks, model choice), so
-"the team can improve its own personality" and "the team can never expand its
-own permissions" can coexist: the prompt files carry no authority over what an
-agent can actually *do*. Verified with a real run through the unmodified
-5-agent pipeline after the split, confirming output was equivalent to before it.
-
-**Milestone C wired a genuine async wrinkle, not a hypothetical one.** The
-existing `ask_developer`/`ask_research_agent`/etc. wrappers call `asyncio.run()`
-internally, which raises if called from inside a loop that's already running —
-exactly FastAPI's situation. Fixed with `asyncio.to_thread(...)` around the
-existing synchronous call, the same pattern already proven for Phase 5's SQLite
-polling, with zero changes needed to `orchestrator.py` or any agent module.
-`run_trigger.py` splits `create_pending_run` (one fast synchronous insert) from
-`execute_run` (the actual blocking pipeline work), so `POST /api/trigger` can
-return a `run_id` immediately — confirmed at 0.03 seconds — while the run
-executes in the background and streams to the dashboard over the same WebSocket
-mechanism Phase 5 already had, unchanged.
-
-**A second real, live sandbox-escape bug, found the same way Phase 5's was —
-during this phase's own end-to-end verification, not a design review.**
-Triggering an ordinary (non-self-improvement) `team_pipeline` run through the
-real `/api/trigger` endpoint, Developer used Bash with a *relative* path to
-append a new dependency to the real project-root `requirements.txt` and
-`pip install` it into the real shared venv — both completely outside
-`workspace/`, both confirmed directly (reading the modified file, importing the
-newly-installed package) rather than taken on the agent's word. Root cause:
-`workspace_guard.py`'s Bash check, built in Phase 5, only scanned for absolute
-Windows drive-letter paths and never resolved relative tokens against the
-working directory at all — exactly gap #1 the Plan review had already flagged
-for the *new* self-mod guard, just not yet back-ported to the older one it was
-sitting right next to. Separately, `pip install`/`npm install` commands contain
-no file path in their command text at all, so no path check — however
-thorough — could ever catch them; their side effect is mutating the one shared
-venv every `workspace/` run uses, not writing to a location expressible as a
-path. Fixed by porting the self-mod guard's own per-token, cwd-relative
-resolution back into `workspace_guard.py`, plus an explicit command-pattern
-denial for package-manager install/uninstall commands. Verified with a
-dedicated 14-scenario test suite covering the exact real-bug command, the
-original Phase 5 absolute-path escape (still denied, a regression check), pip
-and npm install/uninstall in several forms, and legitimate in-workspace
-commands including bare words like "pytest" or "install" appearing in normal
-prose (still allowed, confirming no false positives). The stray
-`requirements.txt` line was reverted; the residual `pytest` install was left in
-the local venv as harmless (it's gitignored, never reaches the repository).
-
-## Next steps
-
-All six phases planned so far are complete. Candidates for what comes after,
-roughly in the order the user has flagged wanting them (not urgent, no fixed
-timeline):
-
-**User-flagged future wants (not built yet, deliberately deferred):**
-
-- Voice activation and communication — explicitly called out by the user as a later phase, not part of Phase 6
-- Real scheduling/proactive autonomy — Phase 6 deliberately kept the team "always up but user-triggered": the dashboard stays running and reachable, but every run still starts because the user explicitly asked. Actually letting the team initiate work on its own (a poller, a cron job, a background loop) would be a real, separate design decision, not a natural extension of what's built
-- The "protects files, not capabilities" ceiling on self-modification — `self_modification_guard.py` is a denylist, so it can't stop new code in a non-denylisted file from implementing exactly the autonomous/scheduled behavior above scope. Currently mitigated only with soft prompt-level instructions on every agent and a standing instruction for Testing to flag it explicitly if it shows up in a self-improvement-mode review (see Phase 6 development history) — worth a harder mitigation if this ever becomes a real risk rather than a theoretical one
-- The localhost-only-trigger middle ground for remote access — binding GET/WS broadly for remote watching while requiring `127.0.0.1` specifically for `POST /api/trigger`, so triggering stays local-only even if watching doesn't (see the Remote access section above) — not built since it wasn't asked for
-
-**Also identified, not urgent, no particular priority:**
-
-- A real visual QA pass on the dashboard in an actual browser — the underlying data/HTTP/WebSocket correctness has been verified end-to-end (Phase 5 and Phase 6 development history), but the actual rendered UI has still never been confirmed eyes-on-screen in a live browser
-- Chunking notes by heading section instead of embedding them whole
-- Richer per-note metadata (tags, modified time) for filtering/re-ranking search results
-- File-watcher + incremental re-indexing, instead of rebuilding the whole embedding index every call
-- Frontmatter/wikilink-aware writes in `vault_writer.py`
-- Per-goal or per-project workspace directories instead of one shared `workspace/`, if running unrelated goals back to back turns out to matter in practice
-- A way to start the pipeline partway through (e.g. skip Architect when a plan already exists) or skip a stage
-- `workspace_guard.py`'s Bash check hardened further (or replaced with real OS-level containment — a restricted user account, a container) if the heuristic regex approach ever proves insufficient in practice
-
-**Do not start yet:**
-
-- Don't land any single change across multiple unrelated concerns at once — test each item in isolation, the same discipline used through Phases 1-5
+CI (`.github/workflows/ci.yml`) runs lint and tests on every push/PR; a
+version tag (`v*.*.*`) triggers `release.yml`, which builds the bundled venv,
+the frontend, the frozen launcher, and the installer, then publishes it as a
+GitHub Release.

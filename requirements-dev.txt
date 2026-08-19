@@ -1,0 +1,4 @@
+# ci-only tooling - never installed into the bundled venv shipped inside the
+# windows installer, only used by .github/workflows/ci.yml and release.yml
+pytest>=8.0.0
+ruff>=0.6.0

@@ -1,0 +1,27 @@
+[project]
+name = "topher"
+version = "0.7.0"
+description = "TOPHER - a personal AI assistant with vault search, a self-improving agent team, and a live dashboard"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 125
+exclude = ["packaging/launcher/_build_venv", "packaging/payload"]
+
+[tool.ruff.lint]
+# scoped deliberately to pyflakes (real bugs: unused imports, undefined names)
+# and pycodestyle errors - ruff's stricter opinionated rule sets (import
+# sorting, blind-except, flake8-datetimez, etc.) would flag a lot of this
+# project's already-deliberate design choices (e.g. best-effort try/except
+# swallowing, documented in the modules that use it) as if they were bugs
+select = ["E", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# both files deliberately insert onto sys.path before importing second_brain,
+# so the package resolves correctly regardless of the caller's own cwd - the
+# same reasoning is documented in each file's own header comment
+"run_mcp_server.py" = ["E402"]
+"packaging/launcher/tray_app.py" = ["E402"]

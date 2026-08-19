@@ -19,3 +19,11 @@ venv/
 
 # claude code local settings (personal, not shared)
 .claude/settings.local.json
+
+# phase 7: packaging build artifacts - all reproducible from packaging/scripts/,
+# never committed
+packaging/launcher/_build_venv/
+packaging/launcher/build/
+packaging/dist/
+packaging/payload/
+.pytest_cache/

@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest tests/ -v
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: dashboard-frontend/package-lock.json
+
+      - name: Frontend lint and build
+        working-directory: dashboard-frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run build
+
+  verify-version:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Assert pyproject.toml version matches the pushed tag
+        run: |
+          PROJECT_VERSION=$(python packaging/scripts/stamp_version.py)
+          TAG_VERSION=${GITHUB_REF_NAME#v}
+          if [ "$PROJECT_VERSION" != "$TAG_VERSION" ]; then
+            echo "pyproject.toml version ($PROJECT_VERSION) does not match tag ${GITHUB_REF_NAME} (expected $TAG_VERSION)"
+            exit 1
+          fi
+          echo "TOPHER_VERSION=$PROJECT_VERSION" >> "$GITHUB_ENV"
+
+  build-and-release:
+    runs-on: windows-latest
+    needs: verify-version
+    steps:
+      # fetch-depth 0 is deliberate - this checkout's .git becomes the shipped
+      # project's .git, so self-improvement mode has real history and a
+      # working origin remote from the moment it's installed
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: dashboard-frontend/package-lock.json
+
+      - name: Read version
+        id: version
+        run: |
+          $version = python packaging/scripts/stamp_version.py
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Build frontend
+        working-directory: dashboard-frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build bundled venv
+        run: .\packaging\scripts\build_venv.ps1
+
+      - name: Freeze launcher
+        run: .\packaging\scripts\freeze_launcher.ps1
+
+      - name: Assemble installer payload
+        run: .\packaging\scripts\assemble_payload.ps1
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            /DMyAppVersion=${{ steps.version.outputs.version }} `
+            packaging\installer\topher.iss
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            "packaging\dist\TOPHER-Setup-${{ steps.version.outputs.version }}.exe" `
+            --title "TOPHER ${{ github.ref_name }}" `
+            --generate-notes

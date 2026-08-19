@@ -150,18 +150,18 @@ h1, h2, h3, p, span, div {
   grid-column: 1 / -1;
 }
 
+/* auto-fit + minmax lets the browser decide how many cards fit per row from
+   the available width (5 across on a wide window, 2x2x1 at moderate widths,
+   1 per row once it's narrow) instead of a hard-coded column count - the one
+   thing that makes this actually responsive rather than a fixed breakpoint */
 .agent-status-board-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
 }
 
 @media (max-width: 900px) {
   .app-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .agent-status-board-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -260,6 +260,12 @@ h1, h2, h3, p, span, div {
 /* agent status cards */
 
 .agent-card {
+  /* grid items default to min-width: auto, which sizes to the unwrapped
+     snippet text below (white-space: nowrap) instead of the 1fr track -
+     that's what was pushing the whole row wider than the window. min-width: 0
+     lets the card actually shrink to its track's width so the snippet's own
+     text-overflow: ellipsis can do its job */
+  min-width: 0;
   padding: 14px;
   display: flex;
   flex-direction: column;
