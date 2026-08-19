@@ -133,21 +133,15 @@ h1, h2, h3, p, span, div {
   box-shadow: 0 0 8px -1px var(--status-error);
 }
 
-/* main 3-panel grid: status board is the primary focus (spans full width up top),
-   history and vault activity share the row below */
+/* main grid: trigger panel and status board are the primary focus (each spans
+   full width), history sits below */
 
 .app-grid {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
   padding: 16px 24px 24px;
-}
-
-.trigger-panel,
-.agent-status-board {
-  grid-column: 1 / -1;
 }
 
 /* auto-fit + minmax lets the browser decide how many cards fit per row from
@@ -158,12 +152,6 @@ h1, h2, h3, p, span, div {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
-}
-
-@media (max-width: 900px) {
-  .app-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* trigger panel */
@@ -374,31 +362,6 @@ h1, h2, h3, p, span, div {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-}
-
-/* vault activity feed */
-
-.vault-activity-feed {
-  padding: 16px;
-  overflow-y: auto;
-}
-
-.vault-event-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.vault-event-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 13px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--panel-border);
 }
 
 /* run detail overlay */

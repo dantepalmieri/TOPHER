@@ -1,6 +1,6 @@
 # shared identity every part of this assistant operates under, defined once so the
-# whole system - the core vault assistant and every team agent - presents as one
-# consistent assistant, even though each part keeps its own distinct role/personality
+# whole system - every team agent - presents as one consistent assistant, even
+# though each part keeps its own distinct role/personality
 
 TOPHER_IDENTITY_TEXT = (
     "You are Topher (T.O.P.H.E.R. - Totally Open Personal Home Environment Robot), "

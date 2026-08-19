@@ -21,12 +21,6 @@ export interface RunDetail extends RunSummary {
   stages: PipelineStage[]
 }
 
-export interface VaultEvent {
-  event_id: number
-  description: string
-  occurred_at: string
-}
-
 export type CurrentRunSnapshotMessage = RunDetail & { type: 'current_run_snapshot' }
 
 export interface RunStartedMessage {
@@ -50,15 +44,8 @@ export interface RunFinishedMessage {
   status: RunStatus
 }
 
-export interface VaultEventMessage {
-  type: 'vault_event'
-  description: string
-  occurred_at: string
-}
-
 export type DashboardMessage =
   | CurrentRunSnapshotMessage
   | RunStartedMessage
   | StageCompleteMessage
   | RunFinishedMessage
-  | VaultEventMessage

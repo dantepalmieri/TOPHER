@@ -28,7 +28,6 @@ from second_brain.config import (
 from second_brain.dashboard import run_store, run_trigger
 
 DEFAULT_RUNS_LIMIT = 20
-DEFAULT_VAULT_EVENTS_LIMIT = 50
 FRONTEND_BUILD_DIRECTORY = os.path.join(PROJECT_ROOT_DIRECTORY, "dashboard-frontend", "dist")
 
 RUN_NOT_FOUND_MESSAGE = "No run with this id exists."
@@ -37,7 +36,6 @@ EMPTY_GOAL_MESSAGE = "goal must not be empty."
 RUN_STARTED_MESSAGE_TYPE = "run_started"
 STAGE_COMPLETE_MESSAGE_TYPE = "stage_complete"
 RUN_FINISHED_MESSAGE_TYPE = "run_finished"
-VAULT_EVENT_MESSAGE_TYPE = "vault_event"
 CURRENT_RUN_SNAPSHOT_MESSAGE_TYPE = "current_run_snapshot"
 
 
@@ -86,14 +84,13 @@ class TriggerResponse(pydantic.BaseModel):
 
 
 async def _poll_and_broadcast_loop():
-    # detects new pipeline activity and vault events by polling run_store on an
-    # interval, and broadcasts anything new to every connected browser. every
-    # run_store call is wrapped in asyncio.to_thread so a sqlite query never blocks
-    # this event loop, which would otherwise delay delivery to every connected client
+    # detects new pipeline activity by polling run_store on an interval, and
+    # broadcasts anything new to every connected browser. every run_store call is
+    # wrapped in asyncio.to_thread so a sqlite query never blocks this event loop,
+    # which would otherwise delay delivery to every connected client
     last_run_id = None
     last_stage_count = 0
     last_broadcast_status = None
-    last_seen_vault_event_id = await asyncio.to_thread(run_store.get_max_vault_event_id)
 
     while True:
         await asyncio.sleep(DASHBOARD_POLL_INTERVAL_SECONDS)
@@ -134,16 +131,6 @@ async def _poll_and_broadcast_loop():
                 })
             last_broadcast_status = current_snapshot.status
 
-        new_vault_events = await asyncio.to_thread(run_store.list_new_vault_events_since, last_seen_vault_event_id)
-        for event_index in range(len(new_vault_events)):
-            current_event = new_vault_events[event_index]
-            await connection_manager.broadcast({
-                "type": VAULT_EVENT_MESSAGE_TYPE,
-                "description": current_event.description,
-                "occurred_at": current_event.occurred_at
-            })
-            last_seen_vault_event_id = current_event.event_id
-
 
 @contextlib.asynccontextmanager
 async def _lifespan(fastapi_app):
@@ -173,12 +160,6 @@ def get_run(run_id: str):
         raise fastapi.HTTPException(status_code=404, detail=RUN_NOT_FOUND_MESSAGE)
 
     return run_detail
-
-
-@app.get("/api/vault-events")
-def get_vault_events(limit: int = DEFAULT_VAULT_EVENTS_LIMIT):
-    vault_events = run_store.list_vault_events(limit)
-    return vault_events
 
 
 async def _execute_run_in_background(run_id, goal, mode):

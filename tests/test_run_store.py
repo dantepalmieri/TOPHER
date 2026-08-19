@@ -1,6 +1,6 @@
 # sqlite crud round-trips for the dashboard's single source of truth - every
-# process that touches the dashboard (cli.py, team_cli.py, research_cli.py,
-# mcp_server.py, server.py) goes through these functions
+# process that touches the dashboard (team_cli.py, research_cli.py, server.py)
+# goes through these functions
 
 import pytest
 
@@ -18,10 +18,10 @@ def isolated_database(tmp_path, monkeypatch):
 
 
 def test_create_run_starts_in_running_status():
-    run_store.create_run("run-1", "test goal", run_type=run_store.VAULT_QA_RUN_TYPE)
+    run_store.create_run("run-1", "test goal", run_type=run_store.SOLO_RESEARCH_RUN_TYPE)
     run_detail = run_store.get_run_detail("run-1")
     assert run_detail.status == run_store.RUN_STATUS_RUNNING
-    assert run_detail.run_type == run_store.VAULT_QA_RUN_TYPE
+    assert run_detail.run_type == run_store.SOLO_RESEARCH_RUN_TYPE
     assert run_detail.goal == "test goal"
     assert run_detail.finished_at is None
 
@@ -64,24 +64,3 @@ def test_get_current_run_snapshot_matches_most_recent_run():
     run_store.create_run("run-latest", "second")
     current_snapshot = run_store.get_current_run_snapshot()
     assert current_snapshot.run_id == "run-latest"
-
-
-def test_record_and_list_vault_events():
-    run_store.record_vault_event("created note: Test Note")
-    run_store.record_vault_event("appended to note: Test Note")
-    vault_events = run_store.list_vault_events(limit=10)
-    assert len(vault_events) == 2
-    assert vault_events[0].description == "appended to note: Test Note"
-    assert vault_events[1].description == "created note: Test Note"
-
-
-def test_list_new_vault_events_since_only_returns_newer_events():
-    run_store.record_vault_event("first event")
-    last_seen_id = run_store.get_max_vault_event_id()
-    run_store.record_vault_event("second event")
-    run_store.record_vault_event("third event")
-
-    new_events = run_store.list_new_vault_events_since(last_seen_id)
-    assert len(new_events) == 2
-    assert new_events[0].description == "second event"
-    assert new_events[1].description == "third event"

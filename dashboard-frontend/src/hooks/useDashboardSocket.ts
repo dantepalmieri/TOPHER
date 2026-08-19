@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react'
-import type { DashboardMessage, RunDetail, RunSummary, VaultEvent } from '../types'
+import type { DashboardMessage, RunDetail, RunSummary } from '../types'
 
 const RECONNECT_DELAY_MILLISECONDS = 2000
 const INITIAL_RUNS_LIMIT = 20
-const INITIAL_VAULT_EVENTS_LIMIT = 50
 
 interface DashboardState {
   connected: boolean
   currentRun: RunDetail | null
   pastRuns: RunSummary[]
-  vaultEvents: VaultEvent[]
 }
 
 function buildRunSummaryFromStartedMessage(message: {
@@ -61,14 +59,6 @@ function copyRunsWithStatusUpdated(existingRuns: RunSummary[], runId: string, ne
   return updatedRuns
 }
 
-function copyVaultEventsWithOnePrepended(existingEvents: VaultEvent[], newEvent: VaultEvent): VaultEvent[] {
-  const updatedEvents: VaultEvent[] = [newEvent]
-  for (let eventIndex = 0; eventIndex < existingEvents.length; eventIndex++) {
-    updatedEvents.push(existingEvents[eventIndex])
-  }
-  return updatedEvents
-}
-
 // owns the websocket connection to the dashboard backend plus the initial rest
 // fetches for state that existed before this browser tab connected. rest gives
 // the starting point; the websocket delivers every change after that as a delta
@@ -76,7 +66,6 @@ export function useDashboardSocket(): DashboardState {
   const [connected, setConnected] = useState(false)
   const [currentRun, setCurrentRun] = useState<RunDetail | null>(null)
   const [pastRuns, setPastRuns] = useState<RunSummary[]>([])
-  const [vaultEvents, setVaultEvents] = useState<VaultEvent[]>([])
 
   useEffect(() => {
     let isUnmounted = false
@@ -86,12 +75,6 @@ export function useDashboardSocket(): DashboardState {
       const runsData: RunSummary[] = await runsResponse.json()
       if (isUnmounted === false) {
         setPastRuns(runsData)
-      }
-
-      const vaultEventsResponse = await fetch('/api/vault-events?limit=' + INITIAL_VAULT_EVENTS_LIMIT)
-      const vaultEventsData: VaultEvent[] = await vaultEventsResponse.json()
-      if (isUnmounted === false) {
-        setVaultEvents(vaultEventsData)
       }
     }
 
@@ -139,16 +122,6 @@ export function useDashboardSocket(): DashboardState {
           return { ...previousRun, status: message.status }
         })
         setPastRuns((previousRuns) => copyRunsWithStatusUpdated(previousRuns, message.run_id, message.status))
-        return
-      }
-
-      if (message.type === 'vault_event') {
-        const newEvent: VaultEvent = {
-          event_id: Date.now(),
-          description: message.description,
-          occurred_at: message.occurred_at,
-        }
-        setVaultEvents((previousEvents) => copyVaultEventsWithOnePrepended(previousEvents, newEvent))
       }
     }
 
@@ -195,5 +168,5 @@ export function useDashboardSocket(): DashboardState {
     }
   }, [])
 
-  return { connected, currentRun, pastRuns, vaultEvents }
+  return { connected, currentRun, pastRuns }
 }

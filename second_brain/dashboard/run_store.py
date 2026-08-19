@@ -1,12 +1,12 @@
 # phase 5: owns all sqlite access for the dashboard - the single source of truth for
-# pipeline run history and vault activity. every process that touches the dashboard
-# (team_cli.py, mcp_server.py, the dashboard server itself) goes through this module
-# rather than opening its own connection, so the concurrency handling lives in one place
+# pipeline run history. every process that touches the dashboard (team_cli.py, the
+# dashboard server itself) goes through this module rather than opening its own
+# connection, so the concurrency handling lives in one place
 
 import sqlite3
 import datetime
 from second_brain.config import DASHBOARD_DATABASE_PATH, DASHBOARD_STALE_RUN_THRESHOLD_MINUTES
-from second_brain.types import PipelineStageResult, RunSummary, RunDetail, VaultEvent
+from second_brain.types import PipelineStageResult, RunSummary, RunDetail
 
 BUSY_TIMEOUT_MILLISECONDS = 5000
 
@@ -16,7 +16,6 @@ RUN_STATUS_ERROR = "error"
 RUN_STATUS_INTERRUPTED = "interrupted"
 
 TEAM_PIPELINE_RUN_TYPE = "team_pipeline"
-VAULT_QA_RUN_TYPE = "vault_qa"
 SOLO_RESEARCH_RUN_TYPE = "solo_research"
 # phase 6: same 5-stage shape as TEAM_PIPELINE_RUN_TYPE (still architect -> research ->
 # developer -> testing -> analytics) but pointed at the real project root under
@@ -61,13 +60,6 @@ def initialize_database():
         "output_text TEXT NOT NULL, "
         "completed_at TEXT NOT NULL)"
     )
-    connection.execute(
-        "CREATE TABLE IF NOT EXISTS vault_events ("
-        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "description TEXT NOT NULL, "
-        "occurred_at TEXT NOT NULL)"
-    )
-
     connection.commit()
     connection.close()
 
@@ -164,17 +156,6 @@ def mark_run_finished(run_id, status):
     connection.close()
 
 
-def record_vault_event(description):
-    # inserts one vault activity event
-    connection = _open_connection()
-    connection.execute(
-        "INSERT INTO vault_events (description, occurred_at) VALUES (?, ?)",
-        (description, _current_timestamp())
-    )
-    connection.commit()
-    connection.close()
-
-
 def list_runs(limit):
     # every run, most recently started first, with read-time staleness resolved
     connection = _open_connection()
@@ -249,61 +230,3 @@ def get_current_run_snapshot():
 
     connection.close()
     return run_detail
-
-
-def list_vault_events(limit):
-    # the most recent vault activity events, newest first
-    connection = _open_connection()
-    event_rows = connection.execute(
-        "SELECT id, description, occurred_at FROM vault_events ORDER BY id DESC LIMIT ?",
-        (limit,)
-    ).fetchall()
-
-    vault_events = []
-    for row_index in range(len(event_rows)):
-        current_row = event_rows[row_index]
-        vault_events.append(VaultEvent(
-            event_id=current_row["id"],
-            description=current_row["description"],
-            occurred_at=current_row["occurred_at"]
-        ))
-
-    connection.close()
-    return vault_events
-
-
-def get_max_vault_event_id():
-    # the highest vault_events id currently stored, or 0 if the table is empty -
-    # used to seed the dashboard server's poll loop on startup so it does not
-    # broadcast the entire historical table as if every row were brand new
-    connection = _open_connection()
-    max_id_row = connection.execute("SELECT MAX(id) AS max_id FROM vault_events").fetchone()
-    connection.close()
-
-    if max_id_row["max_id"] is None:
-        return 0
-
-    return max_id_row["max_id"]
-
-
-def list_new_vault_events_since(last_seen_event_id):
-    # vault events inserted after the given id, oldest first - vault_events is
-    # append-only (no updates), so id-based tracking is sufficient here, unlike
-    # the runs table which get_current_run_snapshot handles differently
-    connection = _open_connection()
-    event_rows = connection.execute(
-        "SELECT id, description, occurred_at FROM vault_events WHERE id > ? ORDER BY id ASC",
-        (last_seen_event_id,)
-    ).fetchall()
-    connection.close()
-
-    vault_events = []
-    for row_index in range(len(event_rows)):
-        current_row = event_rows[row_index]
-        vault_events.append(VaultEvent(
-            event_id=current_row["id"],
-            description=current_row["description"],
-            occurred_at=current_row["occurred_at"]
-        ))
-
-    return vault_events

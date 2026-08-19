@@ -12,34 +12,21 @@
 
 import asyncio
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, HookMatcher
-from second_brain.config import (
-    VENV_PYTHON_EXECUTABLE_PATH,
-    MCP_SERVER_LAUNCHER_PATH,
-    ARCHITECT_AGENT_MODEL_NAME,
-    PROJECT_ROOT_DIRECTORY
-)
+from second_brain.config import ARCHITECT_AGENT_MODEL_NAME, PROJECT_ROOT_DIRECTORY
 from second_brain.agents.self_modification_guard import check_self_modification_is_safe
 from second_brain.agents.architect_prompt import ARCHITECT_AGENT_SYSTEM_PROMPT
 
-VAULT_MCP_SERVER_NAME = "vault"
-VAULT_TOOL_WILDCARD = "mcp__" + VAULT_MCP_SERVER_NAME + "__*"
 READ_TOOL_NAME = "Read"
 GLOB_TOOL_NAME = "Glob"
 GREP_TOOL_NAME = "Grep"
 
-ARCHITECT_AGENT_ALLOWED_TOOLS = [READ_TOOL_NAME, GLOB_TOOL_NAME, GREP_TOOL_NAME, VAULT_TOOL_WILDCARD]
+ARCHITECT_AGENT_ALLOWED_TOOLS = [READ_TOOL_NAME, GLOB_TOOL_NAME, GREP_TOOL_NAME]
 
 
 def _build_architect_agent_options():
-    # assembles the sdk options for the architect: read-only tools plus the vault's mcp
-    # server for context, restricted to exactly the tools above - no write/edit/bash
-    vault_mcp_server_config = {
-        "command": VENV_PYTHON_EXECUTABLE_PATH,
-        "args": [MCP_SERVER_LAUNCHER_PATH]
-    }
-
+    # assembles the sdk options for the architect: read-only tools, restricted to
+    # exactly the tools above - no write/edit/bash
     agent_options = ClaudeAgentOptions(
-        mcp_servers={VAULT_MCP_SERVER_NAME: vault_mcp_server_config},
         allowed_tools=ARCHITECT_AGENT_ALLOWED_TOOLS,
         system_prompt=ARCHITECT_AGENT_SYSTEM_PROMPT,
         model=ARCHITECT_AGENT_MODEL_NAME,

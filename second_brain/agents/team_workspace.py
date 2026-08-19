@@ -1,6 +1,6 @@
 # the shared sandbox directory that developer/testing/analytics operate in - kept
-# separate from the vault and from this project's own source, so nothing the team
-# builds, runs, or tests can touch code outside its own workspace
+# separate from this project's own source, so nothing the team builds, runs, or
+# tests can touch code outside its own workspace
 
 import os
 from second_brain.config import TEAM_WORKSPACE_DIRECTORY_PATH

@@ -23,11 +23,6 @@ def test_dashboard_database_path_is_direct_child_of_project_root():
     assert config.DASHBOARD_DATABASE_PATH == expected_path
 
 
-def test_conversation_history_file_path_is_direct_child_of_project_root():
-    expected_path = os.path.join(config.PROJECT_ROOT_DIRECTORY, "conversation_history.json")
-    assert config.CONVERSATION_HISTORY_FILE_PATH == expected_path
-
-
 def test_team_workspace_directory_path_is_direct_child_of_project_root():
     expected_path = os.path.join(config.PROJECT_ROOT_DIRECTORY, "workspace")
     assert config.TEAM_WORKSPACE_DIRECTORY_PATH == expected_path
@@ -36,11 +31,6 @@ def test_team_workspace_directory_path_is_direct_child_of_project_root():
 def test_venv_python_executable_path_matches_windows_venv_layout():
     expected_path = os.path.join(config.PROJECT_ROOT_DIRECTORY, "venv", "Scripts", "python.exe")
     assert config.VENV_PYTHON_EXECUTABLE_PATH == expected_path
-
-
-def test_mcp_server_launcher_path_is_direct_child_of_project_root():
-    expected_path = os.path.join(config.PROJECT_ROOT_DIRECTORY, "run_mcp_server.py")
-    assert config.MCP_SERVER_LAUNCHER_PATH == expected_path
 
 
 def test_self_modification_protected_paths_are_all_relative():

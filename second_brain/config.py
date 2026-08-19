@@ -13,40 +13,16 @@ ENV_FILE_PATH = os.path.join(PROJECT_ROOT_DIRECTORY, ".env")
 
 load_dotenv(ENV_FILE_PATH)
 
-OBSIDIAN_VAULT_PATH = os.environ.get("OBSIDIAN_VAULT_PATH", "")
-CLAUDE_MODEL_NAME = "claude-sonnet-4-6"
-CLAUDE_MAX_TOKENS = 1500
-MAXIMUM_NOTES_TO_INCLUDE = 5
-NOTE_FILE_EXTENSION = ".md"
-
-# local sentence-transformers model used to embed notes and questions for semantic search
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
-VAULT_COLLECTION_NAME = "vault_notes"
-
-# conversation memory: persisted in full on disk, but only the most recent turns are
-# replayed to claude each call to keep token usage bounded; must stay an even number,
-# since turns are always appended in user/assistant pairs. also located relative to
-# this file, for the same reason ENV_FILE_PATH is
-CONVERSATION_HISTORY_FILE_PATH = os.path.join(PROJECT_ROOT_DIRECTORY, "conversation_history.json")
-MAXIMUM_HISTORY_TURNS_FOR_CONTEXT = 20
-
-# long-term memory: unlike CONVERSATION_HISTORY_FILE_PATH (a raw replay buffer outside
-# the vault), each session gets distilled into a short summary and saved as a note inside
-# the vault itself, so it's readable/editable like any other note and picked up by the
-# same semantic search automatically
-ASSISTANT_MEMORY_FOLDER_NAME = "Assistant Memory"
-SUMMARIZATION_MAX_TOKENS = 300
-
-# phase 3: research agent, built on the claude agent sdk rather than the raw api client
-# above. it launches the vault mcp server itself (same launcher/venv the .mcp.json
-# registration uses) so it can search/read the vault alongside live web search
+# the venv python this project's own dependencies are installed into - used to spawn
+# the dashboard server as a subprocess from the packaged launcher (tray_app.py)
 VENV_PYTHON_EXECUTABLE_PATH = os.path.join(PROJECT_ROOT_DIRECTORY, "venv", "Scripts", "python.exe")
-MCP_SERVER_LAUNCHER_PATH = os.path.join(PROJECT_ROOT_DIRECTORY, "run_mcp_server.py")
+
+# phase 3: research agent, built on the claude agent sdk, with a live web search tool
 RESEARCH_AGENT_MODEL_NAME = "sonnet"
 
 # phase 4: the rest of the agent team. developer/testing/analytics get real filesystem
-# and command-execution tools (unlike research, which is read-only outside the vault),
-# so they are scoped to this dedicated sandbox directory rather than the project's own
+# and command-execution tools (unlike research, which is read-only web search), so
+# they are scoped to this dedicated sandbox directory rather than the project's own
 # source or an arbitrary path - nothing they do can touch this assistant's own code
 TEAM_WORKSPACE_DIRECTORY_PATH = os.path.join(PROJECT_ROOT_DIRECTORY, "workspace")
 

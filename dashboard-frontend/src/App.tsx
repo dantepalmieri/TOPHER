@@ -1,11 +1,10 @@
 import { useDashboardSocket } from './hooks/useDashboardSocket'
 import { TriggerPanel } from './components/TriggerPanel'
 import { AgentStatusBoard } from './components/AgentStatusBoard'
-import { VaultActivityFeed } from './components/VaultActivityFeed'
 import { HistoryTimeline } from './components/HistoryTimeline'
 
 function App() {
-  const { connected, currentRun, pastRuns, vaultEvents } = useDashboardSocket()
+  const { connected, currentRun, pastRuns } = useDashboardSocket()
 
   let connectionLabel: string
   let connectionDotClassName: string
@@ -30,7 +29,6 @@ function App() {
         <TriggerPanel />
         <AgentStatusBoard currentRun={currentRun} />
         <HistoryTimeline pastRuns={pastRuns} />
-        <VaultActivityFeed vaultEvents={vaultEvents} />
       </main>
     </div>
   )

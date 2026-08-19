@@ -19,12 +19,7 @@ const MODE_OPTIONS: ModeOption[] = [
   {
     value: 'research',
     label: 'Research',
-    description: 'One research question, vault + web search.',
-  },
-  {
-    value: 'vault_qa',
-    label: 'Vault Q&A',
-    description: 'Ask your Obsidian vault a one-shot question.',
+    description: 'One research question, live web search.',
   },
   {
     value: 'self_improve',

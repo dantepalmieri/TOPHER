@@ -1,5 +1,5 @@
 # the only module that touches terminal input/output for the agent team, mirroring
-# cli.py's and research_cli.py's i/o-ownership convention for its own entry point
+# research_cli.py's i/o-ownership convention for its own entry point
 
 import sys
 from second_brain.orchestrator import (

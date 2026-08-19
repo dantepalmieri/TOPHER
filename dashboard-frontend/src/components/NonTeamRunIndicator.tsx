@@ -7,8 +7,8 @@ interface NonTeamRunIndicatorProps {
 }
 
 // the 5-agent board only makes sense for a team_pipeline run - every other run_type
-// (vault_qa, solo_research, ...) is a single stage, so it gets one simple line
-// instead of five cards that would sit idle forever
+// (solo_research, ...) is a single stage, so it gets one simple line instead of
+// five cards that would sit idle forever
 export function NonTeamRunIndicator({ currentRun }: NonTeamRunIndicatorProps) {
   const statusColorVar = getStatusColorVar(currentRun.status)
 
