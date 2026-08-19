@@ -1,7 +1,7 @@
 [project]
 name = "topher"
 version = "0.7.0"
-description = "TOPHER - a personal AI assistant with vault search, a self-improving agent team, and a live dashboard"
+description = "TOPHER - a personal multi-agent assistant with a live conversation dashboard"
 requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
@@ -20,8 +20,7 @@ exclude = ["packaging/launcher/_build_venv", "packaging/payload"]
 select = ["E", "F"]
 
 [tool.ruff.lint.per-file-ignores]
-# both files deliberately insert onto sys.path before importing second_brain,
-# so the package resolves correctly regardless of the caller's own cwd - the
-# same reasoning is documented in each file's own header comment
-"run_mcp_server.py" = ["E402"]
+# deliberately inserts onto sys.path before importing second_brain, so the
+# package resolves correctly regardless of the caller's own cwd - the same
+# reasoning is documented in the file's own header comment
 "packaging/launcher/tray_app.py" = ["E402"]

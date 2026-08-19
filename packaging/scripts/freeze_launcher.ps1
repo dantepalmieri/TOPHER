@@ -1,6 +1,6 @@
-# phase 7: builds TopherLauncher.exe - a separate, isolated venv from the one
-# build_venv.ps1 produces, deliberately: this one only ever gets pystray/pillow/
-# pywin32/dotenv, never the ml-heavy stack, keeping the frozen exe small
+# builds TopherLauncher.exe - a separate, isolated venv from the one build_venv.ps1
+# produces, deliberately: this one only ever gets pystray/pillow/pywin32, never the
+# ml-heavy stack, keeping the frozen exe small
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Resolve-Path "$PSScriptRoot\..\.."

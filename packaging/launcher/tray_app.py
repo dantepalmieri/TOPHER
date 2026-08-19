@@ -1,5 +1,5 @@
-# phase 7: the packaged app's process supervisor. deliberately kept small and
-# free of heavy dependencies (pystray, pillow, pywin32, stdlib only) so it can be
+# the packaged app's process supervisor. deliberately kept small and free of
+# heavy dependencies (pystray, pillow, pywin32, stdlib only) so it can be
 # pyinstaller-frozen on its own, separately from the ml-heavy backend - the actual
 # dashboard server always runs through the bundled venv's own python.exe as a
 # subprocess, never imported into this process directly
@@ -18,7 +18,6 @@ import pystray
 
 LAUNCHER_ICON_TITLE = "TOPHER"
 STARTUP_SHORTCUT_NAME = "TOPHER.lnk"
-SETTINGS_ARGUMENT = "--settings"
 # generous, and empirically justified, not guessed: measured directly against
 # two separate fresh installer runs (fresh venv copy, never executed before) -
 # first launch took ~90 seconds one time and ~150 seconds another, right up
@@ -63,15 +62,9 @@ LAUNCHER_EXECUTABLE_PATH = _resolve_launcher_executable_path()
 # inserting INSTALL_DIRECTORY onto sys.path first means PROJECT_ROOT_DIRECTORY
 # resolves to the installed location automatically, with zero path duplication
 sys.path.insert(0, INSTALL_DIRECTORY)
-from second_brain.config import (
-    DASHBOARD_SERVER_HOST,
-    DASHBOARD_SERVER_PORT,
-    ENV_FILE_PATH,
-    OBSIDIAN_VAULT_PATH,
-    VENV_PYTHON_EXECUTABLE_PATH
-)
+from second_brain.config import DASHBOARD_SERVER_HOST, DASHBOARD_SERVER_PORT, VENV_PYTHON_EXECUTABLE_PATH
 
-from setup_dialog import show_setup_dialog
+from setup_dialog import show_claude_login_required_dialog
 
 # cosmetic only - the readiness check and the actual server bind still use
 # DASHBOARD_SERVER_HOST exactly as configured. "localhost" is just nicer to
@@ -88,12 +81,21 @@ LOG_DIRECTORY = os.path.join(os.environ["LOCALAPPDATA"], "TOPHER", "logs")
 LOG_FILE_PATH = os.path.join(LOG_DIRECTORY, "dashboard.log")
 
 
-def _configuration_looks_complete():
-    # ANTHROPIC_API_KEY has no second_brain.config constant of its own - the
-    # anthropic sdk reads it straight from the environment itself, so this is
-    # the only place that needs to check it directly
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    return api_key != "" and OBSIDIAN_VAULT_PATH.strip() != ""
+def _resolve_bundled_claude_cli_path():
+    # display-only - the claude_agent_sdk package ships a real claude.exe inside
+    # the bundled venv, at this fixed location relative to the venv's own
+    # python.exe. not used to launch anything here; just named in the dialog so
+    # a user knows which binary "claude login" needs to authenticate
+    venv_root_directory = os.path.dirname(os.path.dirname(VENV_PYTHON_EXECUTABLE_PATH))
+    return os.path.join(venv_root_directory, "Lib", "site-packages", "claude_agent_sdk", "_bundled", "claude.exe")
+
+
+def _claude_cli_is_logged_in():
+    # the claude agent sdk's bundled cli checks this same credential store file
+    # for a logged-in claude pro/max session - its presence is the actual proof
+    # the team's agents can authenticate without ANTHROPIC_API_KEY being set
+    credentials_file_path = os.path.join(os.path.expanduser("~"), ".claude", ".credentials.json")
+    return os.path.isfile(credentials_file_path)
 
 
 def _startup_shortcut_path():
@@ -171,7 +173,6 @@ class TopherTrayApp:
             pystray.MenuItem("Restart Server", self._on_restart_server),
             pystray.MenuItem("Stop Server", self._on_stop_server, enabled=self._is_server_running),
             pystray.MenuItem("View Logs", self._on_view_logs),
-            pystray.MenuItem("Settings...", self._on_open_settings),
             pystray.MenuItem(
                 "Start on Login",
                 self._on_toggle_start_on_login,
@@ -243,9 +244,6 @@ class TopherTrayApp:
         os.makedirs(LOG_DIRECTORY, exist_ok=True)
         os.startfile(LOG_FILE_PATH)
 
-    def _on_open_settings(self, icon, menu_item):
-        subprocess.Popen([LAUNCHER_EXECUTABLE_PATH, SETTINGS_ARGUMENT], cwd=INSTALL_DIRECTORY)
-
     def _on_toggle_start_on_login(self, icon, menu_item):
         if _startup_shortcut_exists() is True:
             _remove_startup_shortcut()
@@ -263,14 +261,13 @@ class TopherTrayApp:
 
 
 def main():
-    if SETTINGS_ARGUMENT in sys.argv:
-        show_setup_dialog(ENV_FILE_PATH, VENV_PYTHON_EXECUTABLE_PATH)
+    # a missing claude login is checked and surfaced here, before the server ever
+    # starts - the alternative (letting the dashboard server start and the first
+    # agent call fail deep inside a subprocess) would turn a one-line fix into a
+    # confusing silent failure
+    if _claude_cli_is_logged_in() is False:
+        show_claude_login_required_dialog(_resolve_bundled_claude_cli_path())
         return
-
-    if _configuration_looks_complete() is False:
-        configuration_was_saved = show_setup_dialog(ENV_FILE_PATH, VENV_PYTHON_EXECUTABLE_PATH)
-        if configuration_was_saved is False:
-            return
 
     tray_app = TopherTrayApp()
     tray_app.run()

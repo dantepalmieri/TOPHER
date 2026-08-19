@@ -1,9 +1,5 @@
 # secrets and machine-specific local paths
 .env
-.mcp.json
-
-# personal data - short-term conversation memory
-conversation_history.json
 
 # dashboard run history (sqlite, wal mode - includes -wal/-shm sidecar files)
 dashboard.db*
