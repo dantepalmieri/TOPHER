@@ -60,6 +60,12 @@ jobs:
   build-and-release:
     runs-on: windows-latest
     needs: verify-version
+    # the default GITHUB_TOKEN is read-only on this repo (its "Workflow
+    # permissions" setting) - gh release create needs write access to
+    # releases/contents, and 403s with "Resource not accessible by
+    # integration" without this explicit grant
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
