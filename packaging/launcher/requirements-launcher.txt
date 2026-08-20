@@ -1,9 +1,16 @@
-# the frozen launcher's own dependency set - deliberately excludes everything in
-# the project's own requirements.txt (chromadb, sentence-transformers, claude-agent-sdk,
-# fastapi/uvicorn). those only ever run through the bundled venv's python.exe as a
-# subprocess, never imported directly into this process, so pyinstaller never needs
-# to freeze them
+# the frozen launcher's own dependency set - deliberately excludes claude-agent-sdk/
+# fastapi/uvicorn from the project's own requirements.txt. those only ever run
+# through the bundled venv's python.exe as a subprocess, never imported directly
+# into this process, so pyinstaller never needs to freeze them.
+#
+# python-dotenv is different: tray_app.py imports second_brain.config directly,
+# in-process (not through the bundled venv subprocess), to read
+# DASHBOARD_SERVER_HOST/PORT/VENV_PYTHON_EXECUTABLE_PATH before the server even
+# starts - and config.py itself does `from dotenv import load_dotenv` at module
+# load. found by actually running a built installer: ModuleNotFoundError: dotenv,
+# the instant the frozen exe tried to import second_brain.config
 pystray>=0.19.5
 Pillow>=10.0.0
 pywin32>=306
+python-dotenv>=1.0.0
 pyinstaller>=6.0.0

@@ -22,10 +22,22 @@ New-Item -ItemType Directory -Force -Path $DistPath | Out-Null
 
 Push-Location $LauncherDir
 try {
+    # tray_app.py finds second_brain via a runtime sys.path.insert(), not a
+    # static import PyInstaller's analyzer can follow - confirmed via its own
+    # build output, warn-TopherLauncher.txt: "missing module named
+    # second_brain". that means PyInstaller never sees far enough to discover
+    # second_brain/config.py's own `from dotenv import load_dotenv`, so
+    # dotenv silently never gets bundled no matter what's pip-installed into
+    # this build venv - found by actually running the frozen exe from an
+    # install-like layout: ModuleNotFoundError: dotenv, immediately on
+    # startup. --hidden-import is PyInstaller's documented escape hatch for
+    # exactly this shape of problem (a real dependency the static analyzer
+    # cannot reach)
     & $LauncherVenvPython -m PyInstaller `
         --onefile `
         --windowed `
         --name TopherLauncher `
+        --hidden-import dotenv `
         --distpath $DistPath `
         --workpath (Join-Path $LauncherDir "build") `
         --specpath (Join-Path $LauncherDir "build") `
