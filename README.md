@@ -28,16 +28,30 @@ runs.
 
 ## Installation
 
+Whichever option you pick below, TOPHER needs the
+[Claude Code CLI](https://claude.com/claude-code) logged in on this machine
+first — if you already use Claude Code, you're already logged in and can
+skip this. Otherwise, install it and run:
+
+```powershell
+claude login
+```
+
+authenticated by your Claude Pro or Max subscription. Every agent
+authenticates through that login; there's no API key to configure.
+
 ### Option A: Windows installer
 
-Download the latest `TOPHER-Setup-x.y.z.exe` from
+No release has been published yet — until the first `v*.*.*` tag is cut,
+build the installer yourself (see [`packaging/`](packaging/) and
+`.github/workflows/release.yml` for the full pipeline) or use Option B below.
+
+Once a release exists: download the latest `TOPHER-Setup-x.y.z.exe` from
 [Releases](https://github.com/dantepalmieri/TOPHER/releases) and run it. It
 installs to `%LOCALAPPDATA%\Programs\TOPHER` — no admin rights needed — and
 adds a Start Menu entry plus an optional "launch on login" shortcut.
 
-TOPHER needs a one-time `claude login` on this machine (using the Claude
-Code CLI, authenticated by your Claude Pro or Max subscription) before it
-can start. If you haven't done that yet, the tray app tells you so on first
+If `claude login` hasn't been run yet, the tray app tells you so on first
 launch instead of starting the server. Once you're logged in, reopen TOPHER
 and it runs from a system tray icon:
 
@@ -45,9 +59,6 @@ and it runs from a system tray icon:
 - **Restart Server** / **Stop Server**
 - **View Logs**
 - **Start on Login** — toggles the Startup-folder shortcut
-
-Building the installer yourself, or wiring up the release pipeline, is
-covered in [`packaging/`](packaging/) and `.github/workflows/release.yml`.
 
 ### Option B: From source
 
@@ -58,10 +69,6 @@ python -m venv venv
 venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
-
-Run `claude login` once (the Claude Code CLI, authenticated by your Claude
-Pro or Max subscription) — every agent authenticates through that login, not
-an API key.
 
 **Windows notes:** use `python`, not `python3` (Windows intercepts `python3`
 as a Microsoft Store shortcut). If PowerShell blocks venv activation, run
