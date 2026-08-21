@@ -12,9 +12,12 @@ ENV_FILE_PATH = os.path.join(PROJECT_ROOT_DIRECTORY, ".env")
 
 load_dotenv(ENV_FILE_PATH)
 
-# the venv python this project's own dependencies are installed into - used to spawn
-# the dashboard server as a subprocess from the packaged launcher (tray_app.py)
-VENV_PYTHON_EXECUTABLE_PATH = os.path.join(PROJECT_ROOT_DIRECTORY, "venv", "Scripts", "python.exe")
+# the bundled python runtime this project's own dependencies are installed into -
+# used to spawn the dashboard server as a subprocess from the packaged launcher
+# (tray_app.py). packaging/scripts/build_venv.ps1 builds this from python.org's
+# embeddable distribution rather than `python -m venv` - the embeddable layout
+# has no Scripts\ subfolder, python.exe sits directly under venv\
+VENV_PYTHON_EXECUTABLE_PATH = os.path.join(PROJECT_ROOT_DIRECTORY, "venv", "python.exe")
 
 # phase 3: research agent, built on the claude agent sdk, with a live web search tool
 RESEARCH_AGENT_MODEL_NAME = "sonnet"

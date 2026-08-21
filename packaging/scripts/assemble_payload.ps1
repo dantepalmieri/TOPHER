@@ -50,8 +50,8 @@ if (-not (Test-Path $LauncherExePath)) {
 Copy-Item $LauncherExePath -Destination $PayloadDir
 
 $BundledVenvPath = Join-Path $PayloadDir "venv"
-if (-not (Test-Path (Join-Path $BundledVenvPath "Scripts\python.exe"))) {
-    throw "Bundled venv not found under the payload - run build_venv.ps1 first"
+if (-not (Test-Path (Join-Path $BundledVenvPath "python.exe"))) {
+    throw "Bundled python runtime not found under the payload - run build_venv.ps1 first"
 }
 
 $FrontendDistPath = Join-Path $PayloadDir "dashboard-frontend\dist"
