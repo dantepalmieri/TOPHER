@@ -21,6 +21,19 @@
 # contained wherever it ends up on disk
 $ErrorActionPreference = "Stop"
 
+# $ErrorActionPreference only governs powershell's own cmdlets/native errors -
+# it does NOT turn a non-zero exit code from an external command (pip, an
+# embedded python.exe) into a terminating error. found live: a pip install
+# failure part-way through (see the claude-agent-sdk pin above) left this
+# script printing its own success message and exiting 0 anyway, silently
+# shipping an incomplete runtime. every external command below is checked
+# explicitly instead of trusting $ErrorActionPreference to cover it
+function Assert-LastExitCodeSucceeded([string]$StepDescription) {
+    if ($LASTEXITCODE -ne 0) {
+        throw "$StepDescription failed (exit code $LASTEXITCODE)"
+    }
+}
+
 $PythonVersion = "3.11.9"
 $EmbedZipUrl = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-amd64.zip"
 $GetPipUrl = "https://bootstrap.pypa.io/get-pip.py"
@@ -64,9 +77,12 @@ $VenvPython = Join-Path $VenvPath "python.exe"
 $GetPipPath = Join-Path $env:TEMP "get-pip.py"
 Invoke-WebRequest -Uri $GetPipUrl -OutFile $GetPipPath
 & $VenvPython $GetPipPath
+Assert-LastExitCodeSucceeded "get-pip.py bootstrap"
 Remove-Item $GetPipPath
 
 & $VenvPython -m pip install --upgrade pip
+Assert-LastExitCodeSucceeded "pip self-upgrade"
 & $VenvPython -m pip install -r (Join-Path $ProjectRoot "requirements.txt")
+Assert-LastExitCodeSucceeded "pip install -r requirements.txt"
 
 Write-Host "Bundled portable Python runtime built at $VenvPath"

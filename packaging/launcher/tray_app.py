@@ -160,6 +160,11 @@ class TopherTrayApp:
     def __init__(self):
         self._dashboard_process = None
         self._process_lock = threading.Lock()
+        # tracked separately from "process alive": a freshly-spawned process
+        # exists for a moment before it is actually accepting connections,
+        # and this is what a menu click checks to avoid launching a second
+        # server on top of a start that is already in flight
+        self._is_starting = False
         self._icon = pystray.Icon(
             LAUNCHER_ICON_TITLE,
             _build_tray_icon_image("gray"),
@@ -187,9 +192,20 @@ class TopherTrayApp:
                 return False
             return self._dashboard_process.poll() is None
 
-    def _start_server(self):
+    def _start_server_blocking(self):
+        # the actual, potentially-slow-to-return work (spawn the process, then
+        # wait up to SERVER_START_TIMEOUT_SECONDS for it to accept
+        # connections) - always run this on its own background thread, never
+        # call it directly from a pystray menu callback. pystray runs menu
+        # callbacks on its own message-pump thread on windows, so blocking
+        # here from a callback freezes the tray icon entirely until this
+        # returns - confirmed directly: a click that needed to retry a start
+        # (the previous server process having already died) froze the icon
+        # for the rest of the timeout, and windows reported the whole app as
+        # "not responding"
         with self._process_lock:
             if self._dashboard_process is not None and self._dashboard_process.poll() is None:
+                self._is_starting = False
                 return
 
             os.makedirs(LOG_DIRECTORY, exist_ok=True)
@@ -202,16 +218,31 @@ class TopherTrayApp:
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
 
-        # loading the embedding model at import time (semantic_search.py) makes
-        # startup take a real, noticeable few seconds - block here and reflect
-        # actual readiness in the icon color rather than flipping to green the
-        # instant the process merely exists
         server_became_ready = _wait_for_server_ready(SERVER_START_TIMEOUT_SECONDS)
         if server_became_ready is True:
             self._icon.icon = _build_tray_icon_image(TOPHER_ORANGE)
+            self._icon.title = LAUNCHER_ICON_TITLE
         else:
             self._icon.icon = _build_tray_icon_image("red")
+            self._icon.title = LAUNCHER_ICON_TITLE + " (failed to start)"
         self._icon.update_menu()
+        self._is_starting = False
+
+    def _start_server_if_needed(self):
+        # safe to call from a pystray callback: only ever kicks off the slow
+        # work on a background thread, never blocks itself. a no-op if a
+        # server is already running or a start is already in flight, so a
+        # few impatient clicks in a row can't pile up multiple server
+        # processes or multiple redundant waits
+        with self._process_lock:
+            already_running = self._dashboard_process is not None and self._dashboard_process.poll() is None
+        if already_running is True or self._is_starting is True:
+            return
+
+        self._is_starting = True
+        self._icon.icon = _build_tray_icon_image("gray")
+        self._icon.title = LAUNCHER_ICON_TITLE + " (starting...)"
+        threading.Thread(target=self._start_server_blocking, daemon=True).start()
 
     def _stop_server(self):
         with self._process_lock:
@@ -229,13 +260,19 @@ class TopherTrayApp:
         self._icon.update_menu()
 
     def _on_open_dashboard(self, icon, menu_item):
-        if self._is_server_running() is False:
-            self._start_server()
-        webbrowser.open(DASHBOARD_URL)
+        if self._is_server_running() is True:
+            webbrowser.open(DASHBOARD_URL)
+            return
+        # never opens a browser tab against a server that isn't ready yet -
+        # that's what used to leave several stuck-loading tabs behind after
+        # a few impatient clicks. a start already in flight gets a fresh
+        # notification rather than a second one being kicked off
+        self._icon.notify("TOPHER is starting - this can take a minute on first launch. Try again shortly.")
+        self._start_server_if_needed()
 
     def _on_restart_server(self, icon, menu_item):
         self._stop_server()
-        self._start_server()
+        self._start_server_if_needed()
 
     def _on_stop_server(self, icon, menu_item):
         self._stop_server()
@@ -255,9 +292,18 @@ class TopherTrayApp:
         self._stop_server()
         self._icon.stop()
 
+    def _on_icon_ready(self, icon):
+        # pystray calls this on its own background thread once the icon is
+        # actually visible in the tray - starting the server here, instead
+        # of blocking before .run() is even called, is what makes the icon
+        # appear immediately instead of staying invisible for however long
+        # the server takes to become ready (previously up to 4 minutes on a
+        # slow first launch, with nothing visible at all in the meantime)
+        icon.visible = True
+        self._start_server_if_needed()
+
     def run(self):
-        self._start_server()
-        self._icon.run()
+        self._icon.run(setup=self._on_icon_ready)
 
 
 def main():

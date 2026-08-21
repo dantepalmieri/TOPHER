@@ -1,4 +1,20 @@
 python-dotenv>=1.0.0
-claude-agent-sdk>=0.2.128
+# pinned, not >= : this ships inside the windows installer's bundled runtime,
+# and needs a real win_amd64 wheel to install at all (it bundles a compiled
+# claude.exe). found live - 0.2.144 published its sdist and non-windows
+# wheels to pypi before its windows wheel finished building, so an unpinned
+# `>=` grabbed the sdist instead and failed to build (no hatchling in this
+# minimal environment, and a source build couldn't produce the bundled
+# binary anyway). 0.2.143 confirmed to have a win_amd64 wheel
+claude-agent-sdk==0.2.143
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
+# claude-agent-sdk depends on mcp, and mcp's windows stdio path
+# (mcp/os/win32/utilities.py) imports pywintypes unconditionally at module
+# load - seen directly as a real crash trace (ModuleNotFoundError: pywintypes)
+# on a real installed copy, from some agent code path that transitively
+# reaches mcp.server.stdio. not reliably reproducible against a freshly
+# rebuilt runtime (tried both research and team_conversation modes clean),
+# but the missing dependency is real regardless of exactly when it triggers -
+# pywin32 was previously only in the separate launcher's own requirements
+pywin32>=306
