@@ -16,5 +16,8 @@ uvicorn[standard]>=0.32.0
 # reaches mcp.server.stdio. not reliably reproducible against a freshly
 # rebuilt runtime (tried both research and team_conversation modes clean),
 # but the missing dependency is real regardless of exactly when it triggers -
-# pywin32 was previously only in the separate launcher's own requirements
-pywin32>=306
+# pywin32 was previously only in the separate launcher's own requirements.
+# windows-only package, no linux wheels at all - the marker is required, not
+# cosmetic, since ci's own `test` job installs this same file on
+# ubuntu-latest and a bare `pip install pywin32` there fails outright
+pywin32>=306; sys_platform == "win32"
